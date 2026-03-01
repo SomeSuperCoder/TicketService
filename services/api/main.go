@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"net/http"
 
 	"github.com/SomeSuperCoder/OnlineShop/handlers"
 	"github.com/SomeSuperCoder/OnlineShop/internal"
@@ -39,13 +38,13 @@ func main() {
 }
 
 func MountRoutes(api huma.API, repo *repository.Queries, pool *pgxpool.Pool, redisClient *redis.Client, appConfig *internal.AppConfig) {
-	helloHandler := handlers.HelloHandler{}
+	ticketHandler := handlers.TicketHandler{Repo: repo}
 	{
 		huma.Register(api, huma.Operation{
-			Method:  http.MethodGet,
-			Path:    "/greet",
-			Tags:    []string{"Hello"},
-			Summary: "Greet the user by name",
-		}, helloHandler.Hello)
+			Method:      "POST",
+			Path:        "/tickets",
+			Description: "Create a ticket",
+			Tags:        []string{"Tickets"},
+		}, ticketHandler.Post)
 	}
 }
