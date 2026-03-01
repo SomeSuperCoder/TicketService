@@ -13,7 +13,7 @@ CREATE TABLE tickets (
     location    GEOGRAPHY(Point, 4326) NOT NULL,
 
     -- Semantic embedding
-    embedding   VECTOR(1536) NOT NULL,
+    embedding   VECTOR(768) NOT NULL,
 
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
