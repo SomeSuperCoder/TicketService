@@ -10,6 +10,7 @@ api-test:
 	API_TEST=true go run services/api/main.go
 
 databases:
+	docker-compose -f db/docker-compose.yaml build
 	docker-compose -f db/docker-compose.yaml up -d
 
 databases-down:

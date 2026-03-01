@@ -3,3 +3,19 @@
 //   sqlc v1.30.0
 
 package repository
+
+import (
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/pgvector/pgvector-go"
+)
+
+type Ticket struct {
+	ID          uuid.UUID        `json:"id"`
+	Title       string           `json:"title"`
+	Description string           `json:"description"`
+	Location    interface{}      `json:"location"`
+	Embedding   *pgvector.Vector `json:"embedding"`
+	CreatedAt   time.Time        `json:"created_at"`
+}
