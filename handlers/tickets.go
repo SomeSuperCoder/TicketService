@@ -2,18 +2,20 @@ package handlers
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/SomeSuperCoder/OnlineShop/internal/embeddings"
 	"github.com/SomeSuperCoder/OnlineShop/repository"
-	"github.com/pgvector/pgvector-go"
 )
 
 type TicketHandler struct {
 	Repo *repository.Queries
 }
 
-type PostTicketRequest struct{}
+type PostTicketRequest struct {
+	Body struct {
+		MockText string `json:"mock_text"`
+	}
+}
 type PostTicketResponse struct {
 	Body repository.Ticket
 }
@@ -21,22 +23,44 @@ type PostTicketResponse struct {
 func (h *TicketHandler) Post(ctx context.Context, req *PostTicketRequest) (*PostTicketResponse, error) {
 	resp := new(PostTicketResponse)
 
-	// Get the embedding via ollama
-	emb, err := embeddings.GetEmbedding("The quick brown fox jumps over the lazy dog")
+	vector, err := embeddings.GetEmbedding(req.Body.MockText)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to generate the embedding due to: %w", err)
+		return nil, err
 	}
-	// Create a vector from the embedding
-	vector := pgvector.NewVector(emb)
 
 	result, err := h.Repo.CreateTicket(ctx, repository.CreateTicketParams{
-		Title:       "This is a title",
-		Description: "This is a description",
+		Title:       req.Body.MockText,
+		Description: req.Body.MockText,
 		Longitude:   33,
 		Latitude:    44,
-		Embedding:   &vector,
+		Embedding:   vector,
 	})
 	resp.Body = result
 
 	return resp, err
+}
+
+type SearchByMeaningRequest struct {
+	Query string `query:"query"`
+}
+type SearchByMeaningResponse struct {
+	Body struct {
+		Tickets []repository.SearchTicketsByMeaningRow `json:"tickets"`
+	}
+}
+
+func (h *TicketHandler) SearchByMeaning(ctx context.Context, req *SearchByMeaningRequest) (*SearchByMeaningResponse, error) {
+	resp := new(SearchByMeaningResponse)
+
+	vector, err := embeddings.GetEmbedding(req.Query)
+	if err != nil {
+		return nil, err
+	}
+
+	result, err := h.Repo.SearchTicketsByMeaning(ctx, repository.SearchTicketsByMeaningParams{
+		QueryEmbedding: vector,
+	})
+	resp.Body.Tickets = result
+
+	return resp, nil
 }

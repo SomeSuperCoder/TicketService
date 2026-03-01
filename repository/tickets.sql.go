@@ -8,6 +8,7 @@ package repository
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"github.com/pgvector/pgvector-go"
 )
 
@@ -59,4 +60,50 @@ func (q *Queries) CreateTicket(ctx context.Context, arg CreateTicketParams) (Tic
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const searchTicketsByMeaning = `-- name: SearchTicketsByMeaning :many
+SELECT
+    id,
+    title,
+    description,
+    embedding <=> $1 AS distance
+FROM tickets
+ORDER BY distance ASC
+`
+
+type SearchTicketsByMeaningParams struct {
+	QueryEmbedding *pgvector.Vector `json:"query_embedding"`
+}
+
+type SearchTicketsByMeaningRow struct {
+	ID          uuid.UUID   `json:"id"`
+	Title       string      `json:"title"`
+	Description string      `json:"description"`
+	Distance    interface{} `json:"distance"`
+}
+
+func (q *Queries) SearchTicketsByMeaning(ctx context.Context, arg SearchTicketsByMeaningParams) ([]SearchTicketsByMeaningRow, error) {
+	rows, err := q.db.Query(ctx, searchTicketsByMeaning, arg.QueryEmbedding)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []SearchTicketsByMeaningRow{}
+	for rows.Next() {
+		var i SearchTicketsByMeaningRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.Description,
+			&i.Distance,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }

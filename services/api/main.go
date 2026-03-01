@@ -46,5 +46,11 @@ func MountRoutes(api huma.API, repo *repository.Queries, pool *pgxpool.Pool, red
 			Description: "Create a ticket",
 			Tags:        []string{"Tickets"},
 		}, ticketHandler.Post)
+		huma.Register(api, huma.Operation{
+			Method:      "GET",
+			Path:        "/tickets",
+			Description: "Search for tickets based upon meaning",
+			Tags:        []string{"Tickets"},
+		}, ticketHandler.SearchByMeaning)
 	}
 }

@@ -18,3 +18,12 @@ VALUES (
     sqlc.arg(embedding)
 )
 RETURNING *;
+
+-- name: SearchTicketsByMeaning :many
+SELECT
+    id,
+    title,
+    description,
+    embedding <=> sqlc.arg(query_embedding) AS distance
+FROM tickets
+ORDER BY distance ASC;
