@@ -9,8 +9,10 @@ serve:
 api-test:
 	API_TEST=true go run services/api/main.go
 
-databases:
+build-dbs:
 	docker-compose -f db/docker-compose.yaml build
+
+databases:
 	docker-compose -f db/docker-compose.yaml up -d
 
 databases-down:

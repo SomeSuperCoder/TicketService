@@ -5,17 +5,91 @@
 package repository
 
 import (
+	"database/sql/driver"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/pgvector/pgvector-go"
 )
 
+type TicketStatus string
+
+const (
+	TicketStatusInit   TicketStatus = "init"
+	TicketStatusOpen   TicketStatus = "open"
+	TicketStatusClosed TicketStatus = "closed"
+)
+
+func (e *TicketStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = TicketStatus(s)
+	case string:
+		*e = TicketStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for TicketStatus: %T", src)
+	}
+	return nil
+}
+
+type NullTicketStatus struct {
+	TicketStatus TicketStatus `json:"ticket_status"`
+	Valid        bool         `json:"valid"` // Valid is true if TicketStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullTicketStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.TicketStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.TicketStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullTicketStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.TicketStatus), nil
+}
+
+type Category struct {
+	ID   int32  `json:"id"`
+	Name string `json:"name"`
+}
+
+type Department struct {
+	ID   int32  `json:"id"`
+	Name string `json:"name"`
+}
+
+type Source struct {
+	ID   int32  `json:"id"`
+	Name string `json:"name"`
+}
+
+type Status struct {
+	ID   int32  `json:"id"`
+	Name string `json:"name"`
+}
+
+type Subcategory struct {
+	ID         int32  `json:"id"`
+	CategoryID int32  `json:"category_id"`
+	Name       string `json:"name"`
+}
+
 type Ticket struct {
-	ID          uuid.UUID        `json:"id"`
-	Title       string           `json:"title"`
-	Description string           `json:"description"`
-	Location    interface{}      `json:"location"`
-	Embedding   *pgvector.Vector `json:"embedding"`
-	CreatedAt   time.Time        `json:"created_at"`
+	ID            uuid.UUID        `json:"id"`
+	Status        TicketStatus     `json:"status"`
+	Complaints    []string         `json:"complaints"`
+	Description   string           `json:"description"`
+	IsHidden      bool             `json:"is_hidden"`
+	SubcategoryID int32            `json:"subcategory_id"`
+	DepartmentID  *int32           `json:"department_id"`
+	Embedding     *pgvector.Vector `json:"embedding"`
+	CreatedAt     time.Time        `json:"created_at"`
 }

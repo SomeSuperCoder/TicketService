@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"net/http"
 
 	"github.com/SomeSuperCoder/OnlineShop/handlers"
 	"github.com/SomeSuperCoder/OnlineShop/internal"
@@ -39,18 +40,117 @@ func main() {
 
 func MountRoutes(api huma.API, repo *repository.Queries, pool *pgxpool.Pool, redisClient *redis.Client, appConfig *internal.AppConfig) {
 	ticketHandler := handlers.TicketHandler{Repo: repo}
+
+	// Ticket Routes
 	{
+		// Create
 		huma.Register(api, huma.Operation{
-			Method:      "POST",
+			OperationID: "create-ticket",
+			Method:      http.MethodPost,
 			Path:        "/tickets",
-			Description: "Create a ticket",
+			Description: "Create a ticket with default values (status=init, is_hidden=false)",
 			Tags:        []string{"Tickets"},
 		}, ticketHandler.Post)
+
 		huma.Register(api, huma.Operation{
-			Method:      "GET",
+			OperationID: "create-ticket-full",
+			Method:      http.MethodPost,
+			Path:        "/tickets/full",
+			Description: "Create a ticket with all fields specified",
+			Tags:        []string{"Tickets"},
+		}, ticketHandler.PostFull)
+
+		// Read
+		huma.Register(api, huma.Operation{
+			OperationID: "get-ticket",
+			Method:      http.MethodGet,
+			Path:        "/tickets/{id}",
+			Description: "Get a ticket by ID",
+			Tags:        []string{"Tickets"},
+		}, ticketHandler.Get)
+
+		huma.Register(api, huma.Operation{
+			OperationID: "list-tickets",
+			Method:      http.MethodGet,
 			Path:        "/tickets",
-			Description: "Search for tickets based upon meaning",
+			Description: "List all tickets with pagination",
+			Tags:        []string{"Tickets"},
+		}, ticketHandler.List)
+
+		huma.Register(api, huma.Operation{
+			OperationID: "get-tickets-by-status",
+			Method:      http.MethodGet,
+			Path:        "/tickets/status/{status}",
+			Description: "Get tickets by status",
+			Tags:        []string{"Tickets"},
+		}, ticketHandler.GetByStatus)
+
+		huma.Register(api, huma.Operation{
+			OperationID: "get-tickets-by-subcategory",
+			Method:      http.MethodGet,
+			Path:        "/tickets/subcategory/{subcategoryId}",
+			Description: "Get tickets by subcategory",
+			Tags:        []string{"Tickets"},
+		}, ticketHandler.GetBySubcategory)
+
+		huma.Register(api, huma.Operation{
+			OperationID: "get-tickets-by-department",
+			Method:      http.MethodGet,
+			Path:        "/tickets/department/{departmentId}",
+			Description: "Get tickets by department",
+			Tags:        []string{"Tickets"},
+		}, ticketHandler.GetByDepartment)
+
+		// Search
+		huma.Register(api, huma.Operation{
+			OperationID: "search-tickets-by-meaning",
+			Method:      http.MethodGet,
+			Path:        "/tickets/search/meaning",
+			Description: "Search for tickets based upon semantic meaning",
 			Tags:        []string{"Tickets"},
 		}, ticketHandler.SearchByMeaning)
+
+		// Update
+		huma.Register(api, huma.Operation{
+			OperationID: "update-ticket",
+			Method:      http.MethodPatch,
+			Path:        "/tickets/{id}",
+			Description: "Update a ticket",
+			Tags:        []string{"Tickets"},
+		}, ticketHandler.Update)
+
+		huma.Register(api, huma.Operation{
+			OperationID: "update-ticket-status",
+			Method:      http.MethodPatch,
+			Path:        "/tickets/{id}/status",
+			Description: "Update ticket status",
+			Tags:        []string{"Tickets"},
+		}, ticketHandler.UpdateStatus)
+
+		// Delete/Hide
+		huma.Register(api, huma.Operation{
+			OperationID: "hide-ticket",
+			Method:      http.MethodDelete,
+			Path:        "/tickets/{id}/hide",
+			Description: "Soft delete a ticket (hide it)",
+			Tags:        []string{"Tickets"},
+		}, ticketHandler.Hide)
+
+		huma.Register(api, huma.Operation{
+			OperationID: "delete-ticket",
+			Method:      http.MethodDelete,
+			Path:        "/tickets/{id}",
+			Description: "Permanently delete a ticket",
+			Tags:        []string{"Tickets"},
+		}, ticketHandler.Delete)
+
+		// Count
+		huma.Register(api, huma.Operation{
+			OperationID: "count-tickets",
+			Method:      http.MethodGet,
+			Path:        "/tickets/count",
+			Description: "Get total count of non-hidden tickets",
+			Tags:        []string{"Tickets"},
+		}, ticketHandler.Count)
 	}
 }

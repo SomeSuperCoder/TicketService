@@ -12,91 +12,201 @@ import (
 	"github.com/pgvector/pgvector-go"
 )
 
+const countTickets = `-- name: CountTickets :one
+SELECT COUNT(*) FROM tickets
+WHERE is_hidden = false
+`
+
+func (q *Queries) CountTickets(ctx context.Context) (int64, error) {
+	row := q.db.QueryRow(ctx, countTickets)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countTicketsByStatus = `-- name: CountTicketsByStatus :one
+SELECT COUNT(*) FROM tickets
+WHERE status = $1 AND is_hidden = false
+`
+
+type CountTicketsByStatusParams struct {
+	Status TicketStatus `json:"status"`
+}
+
+func (q *Queries) CountTicketsByStatus(ctx context.Context, arg CountTicketsByStatusParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countTicketsByStatus, arg.Status)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createTicket = `-- name: CreateTicket :one
+
 INSERT INTO tickets (
-    title,
+    status,
+    complaints,
     description,
-    location,
+    is_hidden,
+    subcategory_id,
+    department_id,
     embedding
-)
-VALUES (
-    $1,
-    $2,
-    ST_SetSRID(
-        ST_MakePoint(
-            $3,
-            $4
-        ),
-        4326
-    )::geography,
-    $5
-)
-RETURNING id, title, description, location, embedding, created_at
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7
+) RETURNING id, status, complaints, description, is_hidden, subcategory_id, department_id, embedding, created_at
 `
 
 type CreateTicketParams struct {
-	Title       string           `json:"title"`
-	Description string           `json:"description"`
-	Longitude   interface{}      `json:"longitude"`
-	Latitude    interface{}      `json:"latitude"`
-	Embedding   *pgvector.Vector `json:"embedding"`
+	Status        TicketStatus     `json:"status"`
+	Complaints    []string         `json:"complaints"`
+	Description   string           `json:"description"`
+	IsHidden      bool             `json:"is_hidden"`
+	SubcategoryID int32            `json:"subcategory_id"`
+	DepartmentID  *int32           `json:"department_id"`
+	Embedding     *pgvector.Vector `json:"embedding"`
 }
 
+// queries/tickets.sql
 func (q *Queries) CreateTicket(ctx context.Context, arg CreateTicketParams) (Ticket, error) {
 	row := q.db.QueryRow(ctx, createTicket,
-		arg.Title,
+		arg.Status,
+		arg.Complaints,
 		arg.Description,
-		arg.Longitude,
-		arg.Latitude,
+		arg.IsHidden,
+		arg.SubcategoryID,
+		arg.DepartmentID,
 		arg.Embedding,
 	)
 	var i Ticket
 	err := row.Scan(
 		&i.ID,
-		&i.Title,
+		&i.Status,
+		&i.Complaints,
 		&i.Description,
-		&i.Location,
+		&i.IsHidden,
+		&i.SubcategoryID,
+		&i.DepartmentID,
 		&i.Embedding,
 		&i.CreatedAt,
 	)
 	return i, err
 }
 
-const searchTicketsByMeaning = `-- name: SearchTicketsByMeaning :many
-SELECT
-    id,
-    title,
+const createTicketWithDefaults = `-- name: CreateTicketWithDefaults :one
+INSERT INTO tickets (
+    complaints,
     description,
-    embedding <=> $1 AS distance
-FROM tickets
-ORDER BY distance ASC
+    subcategory_id,
+    department_id,
+    embedding
+) VALUES (
+    $1, $2, $3, $4, $5
+) RETURNING id, status, complaints, description, is_hidden, subcategory_id, department_id, embedding, created_at
 `
 
-type SearchTicketsByMeaningParams struct {
-	QueryEmbedding *pgvector.Vector `json:"query_embedding"`
+type CreateTicketWithDefaultsParams struct {
+	Complaints    []string         `json:"complaints"`
+	Description   string           `json:"description"`
+	SubcategoryID int32            `json:"subcategory_id"`
+	DepartmentID  *int32           `json:"department_id"`
+	Embedding     *pgvector.Vector `json:"embedding"`
 }
 
-type SearchTicketsByMeaningRow struct {
-	ID          uuid.UUID   `json:"id"`
-	Title       string      `json:"title"`
-	Description string      `json:"description"`
-	Distance    interface{} `json:"distance"`
+func (q *Queries) CreateTicketWithDefaults(ctx context.Context, arg CreateTicketWithDefaultsParams) (Ticket, error) {
+	row := q.db.QueryRow(ctx, createTicketWithDefaults,
+		arg.Complaints,
+		arg.Description,
+		arg.SubcategoryID,
+		arg.DepartmentID,
+		arg.Embedding,
+	)
+	var i Ticket
+	err := row.Scan(
+		&i.ID,
+		&i.Status,
+		&i.Complaints,
+		&i.Description,
+		&i.IsHidden,
+		&i.SubcategoryID,
+		&i.DepartmentID,
+		&i.Embedding,
+		&i.CreatedAt,
+	)
+	return i, err
 }
 
-func (q *Queries) SearchTicketsByMeaning(ctx context.Context, arg SearchTicketsByMeaningParams) ([]SearchTicketsByMeaningRow, error) {
-	rows, err := q.db.Query(ctx, searchTicketsByMeaning, arg.QueryEmbedding)
+const deleteTicket = `-- name: DeleteTicket :exec
+DELETE FROM tickets
+WHERE id = $1
+`
+
+type DeleteTicketParams struct {
+	ID uuid.UUID `json:"id"`
+}
+
+func (q *Queries) DeleteTicket(ctx context.Context, arg DeleteTicketParams) error {
+	_, err := q.db.Exec(ctx, deleteTicket, arg.ID)
+	return err
+}
+
+const getTicket = `-- name: GetTicket :one
+SELECT id, status, complaints, description, is_hidden, subcategory_id, department_id, embedding, created_at FROM tickets
+WHERE id = $1 AND is_hidden = false
+`
+
+type GetTicketParams struct {
+	ID uuid.UUID `json:"id"`
+}
+
+func (q *Queries) GetTicket(ctx context.Context, arg GetTicketParams) (Ticket, error) {
+	row := q.db.QueryRow(ctx, getTicket, arg.ID)
+	var i Ticket
+	err := row.Scan(
+		&i.ID,
+		&i.Status,
+		&i.Complaints,
+		&i.Description,
+		&i.IsHidden,
+		&i.SubcategoryID,
+		&i.DepartmentID,
+		&i.Embedding,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getTicketsByDepartment = `-- name: GetTicketsByDepartment :many
+SELECT id, status, complaints, description, is_hidden, subcategory_id, department_id, embedding, created_at FROM tickets
+WHERE department_id = $1 
+  AND is_hidden = false
+ORDER BY created_at DESC
+LIMIT $2 OFFSET $3
+`
+
+type GetTicketsByDepartmentParams struct {
+	DepartmentID *int32 `json:"department_id"`
+	Limit        int32  `json:"limit"`
+	Offset       int32  `json:"offset"`
+}
+
+func (q *Queries) GetTicketsByDepartment(ctx context.Context, arg GetTicketsByDepartmentParams) ([]Ticket, error) {
+	rows, err := q.db.Query(ctx, getTicketsByDepartment, arg.DepartmentID, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []SearchTicketsByMeaningRow{}
+	items := []Ticket{}
 	for rows.Next() {
-		var i SearchTicketsByMeaningRow
+		var i Ticket
 		if err := rows.Scan(
 			&i.ID,
-			&i.Title,
+			&i.Status,
+			&i.Complaints,
 			&i.Description,
-			&i.Distance,
+			&i.IsHidden,
+			&i.SubcategoryID,
+			&i.DepartmentID,
+			&i.Embedding,
+			&i.CreatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -106,4 +216,268 @@ func (q *Queries) SearchTicketsByMeaning(ctx context.Context, arg SearchTicketsB
 		return nil, err
 	}
 	return items, nil
+}
+
+const getTicketsByStatus = `-- name: GetTicketsByStatus :many
+SELECT id, status, complaints, description, is_hidden, subcategory_id, department_id, embedding, created_at FROM tickets
+WHERE status = $1 
+  AND is_hidden = false
+ORDER BY created_at DESC
+LIMIT $2 OFFSET $3
+`
+
+type GetTicketsByStatusParams struct {
+	Status TicketStatus `json:"status"`
+	Limit  int32        `json:"limit"`
+	Offset int32        `json:"offset"`
+}
+
+func (q *Queries) GetTicketsByStatus(ctx context.Context, arg GetTicketsByStatusParams) ([]Ticket, error) {
+	rows, err := q.db.Query(ctx, getTicketsByStatus, arg.Status, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Ticket{}
+	for rows.Next() {
+		var i Ticket
+		if err := rows.Scan(
+			&i.ID,
+			&i.Status,
+			&i.Complaints,
+			&i.Description,
+			&i.IsHidden,
+			&i.SubcategoryID,
+			&i.DepartmentID,
+			&i.Embedding,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getTicketsBySubcategory = `-- name: GetTicketsBySubcategory :many
+SELECT id, status, complaints, description, is_hidden, subcategory_id, department_id, embedding, created_at FROM tickets
+WHERE subcategory_id = $1 
+  AND is_hidden = false
+ORDER BY created_at DESC
+LIMIT $2 OFFSET $3
+`
+
+type GetTicketsBySubcategoryParams struct {
+	SubcategoryID int32 `json:"subcategory_id"`
+	Limit         int32 `json:"limit"`
+	Offset        int32 `json:"offset"`
+}
+
+func (q *Queries) GetTicketsBySubcategory(ctx context.Context, arg GetTicketsBySubcategoryParams) ([]Ticket, error) {
+	rows, err := q.db.Query(ctx, getTicketsBySubcategory, arg.SubcategoryID, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Ticket{}
+	for rows.Next() {
+		var i Ticket
+		if err := rows.Scan(
+			&i.ID,
+			&i.Status,
+			&i.Complaints,
+			&i.Description,
+			&i.IsHidden,
+			&i.SubcategoryID,
+			&i.DepartmentID,
+			&i.Embedding,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const hideTicket = `-- name: HideTicket :exec
+UPDATE tickets
+SET is_hidden = true
+WHERE id = $1
+`
+
+type HideTicketParams struct {
+	ID uuid.UUID `json:"id"`
+}
+
+func (q *Queries) HideTicket(ctx context.Context, arg HideTicketParams) error {
+	_, err := q.db.Exec(ctx, hideTicket, arg.ID)
+	return err
+}
+
+const listTickets = `-- name: ListTickets :many
+SELECT id, status, complaints, description, is_hidden, subcategory_id, department_id, embedding, created_at FROM tickets
+WHERE is_hidden = false
+ORDER BY created_at DESC
+LIMIT $1 OFFSET $2
+`
+
+type ListTicketsParams struct {
+	Limit  int32 `json:"limit"`
+	Offset int32 `json:"offset"`
+}
+
+func (q *Queries) ListTickets(ctx context.Context, arg ListTicketsParams) ([]Ticket, error) {
+	rows, err := q.db.Query(ctx, listTickets, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Ticket{}
+	for rows.Next() {
+		var i Ticket
+		if err := rows.Scan(
+			&i.ID,
+			&i.Status,
+			&i.Complaints,
+			&i.Description,
+			&i.IsHidden,
+			&i.SubcategoryID,
+			&i.DepartmentID,
+			&i.Embedding,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const searchTicketsByEmbedding = `-- name: SearchTicketsByEmbedding :many
+SELECT id, status, complaints, description, is_hidden, subcategory_id, department_id, embedding, created_at FROM tickets
+WHERE is_hidden = false
+ORDER BY embedding <=> $1
+LIMIT $2
+`
+
+type SearchTicketsByEmbeddingParams struct {
+	Embedding *pgvector.Vector `json:"embedding"`
+	Limit     int32            `json:"limit"`
+}
+
+func (q *Queries) SearchTicketsByEmbedding(ctx context.Context, arg SearchTicketsByEmbeddingParams) ([]Ticket, error) {
+	rows, err := q.db.Query(ctx, searchTicketsByEmbedding, arg.Embedding, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Ticket{}
+	for rows.Next() {
+		var i Ticket
+		if err := rows.Scan(
+			&i.ID,
+			&i.Status,
+			&i.Complaints,
+			&i.Description,
+			&i.IsHidden,
+			&i.SubcategoryID,
+			&i.DepartmentID,
+			&i.Embedding,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const updateTicket = `-- name: UpdateTicket :one
+UPDATE tickets
+SET 
+    status = COALESCE($2, status),
+    complaints = COALESCE($3, complaints),
+    description = COALESCE($4, description),
+    subcategory_id = COALESCE($5, subcategory_id),
+    department_id = COALESCE($6, department_id),
+    embedding = COALESCE($7, embedding)
+WHERE id = $1 AND is_hidden = false
+RETURNING id, status, complaints, description, is_hidden, subcategory_id, department_id, embedding, created_at
+`
+
+type UpdateTicketParams struct {
+	ID            uuid.UUID        `json:"id"`
+	Status        TicketStatus     `json:"status"`
+	Complaints    []string         `json:"complaints"`
+	Description   string           `json:"description"`
+	SubcategoryID int32            `json:"subcategory_id"`
+	DepartmentID  *int32           `json:"department_id"`
+	Embedding     *pgvector.Vector `json:"embedding"`
+}
+
+func (q *Queries) UpdateTicket(ctx context.Context, arg UpdateTicketParams) (Ticket, error) {
+	row := q.db.QueryRow(ctx, updateTicket,
+		arg.ID,
+		arg.Status,
+		arg.Complaints,
+		arg.Description,
+		arg.SubcategoryID,
+		arg.DepartmentID,
+		arg.Embedding,
+	)
+	var i Ticket
+	err := row.Scan(
+		&i.ID,
+		&i.Status,
+		&i.Complaints,
+		&i.Description,
+		&i.IsHidden,
+		&i.SubcategoryID,
+		&i.DepartmentID,
+		&i.Embedding,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const updateTicketStatus = `-- name: UpdateTicketStatus :one
+UPDATE tickets
+SET status = $2
+WHERE id = $1 AND is_hidden = false
+RETURNING id, status, complaints, description, is_hidden, subcategory_id, department_id, embedding, created_at
+`
+
+type UpdateTicketStatusParams struct {
+	ID     uuid.UUID    `json:"id"`
+	Status TicketStatus `json:"status"`
+}
+
+func (q *Queries) UpdateTicketStatus(ctx context.Context, arg UpdateTicketStatusParams) (Ticket, error) {
+	row := q.db.QueryRow(ctx, updateTicketStatus, arg.ID, arg.Status)
+	var i Ticket
+	err := row.Scan(
+		&i.ID,
+		&i.Status,
+		&i.Complaints,
+		&i.Description,
+		&i.IsHidden,
+		&i.SubcategoryID,
+		&i.DepartmentID,
+		&i.Embedding,
+		&i.CreatedAt,
+	)
+	return i, err
 }
