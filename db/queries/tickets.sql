@@ -1,21 +1,10 @@
 -- queries/tickets.sql
 
--- name: CreateTicket :one
-INSERT INTO tickets (
-    status,
-    complaints,
-    description,
-    is_hidden,
-    subcategory_id,
-    department_id,
-    embedding
-) VALUES (
-    $1, $2, $3, $4, $5, $6, $7
-) RETURNING *;
-
 -- name: CreateTicketWithDefaults :one
 INSERT INTO tickets (
+    -- Complaint data
     complaints,
+    -- End complaint data
     description,
     subcategory_id,
     department_id,

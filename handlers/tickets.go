@@ -51,47 +51,6 @@ func (h *TicketHandler) Post(ctx context.Context, req *PostTicketRequest) (*Post
 	return resp, nil
 }
 
-type PostTicketFullRequest struct {
-	Body struct {
-		Status        repository.TicketStatus `json:"status"`
-		Description   string                  `json:"description"`
-		Complaints    []string                `json:"complaints"`
-		IsHidden      bool                    `json:"is_hidden"`
-		SubcategoryID int32                   `json:"subcategory_id"`
-		DepartmentID  *int32                  `json:"department_id,omitempty"`
-	}
-}
-
-type PostTicketFullResponse struct {
-	Body repository.Ticket
-}
-
-func (h *TicketHandler) PostFull(ctx context.Context, req *PostTicketFullRequest) (*PostTicketFullResponse, error) {
-	resp := new(PostTicketFullResponse)
-
-	// Generate embedding from description
-	vector, err := embeddings.GetEmbedding(req.Body.Description)
-	if err != nil {
-		return nil, err
-	}
-
-	result, err := h.Repo.CreateTicket(ctx, repository.CreateTicketParams{
-		Status:        req.Body.Status,
-		Description:   req.Body.Description,
-		Complaints:    req.Body.Complaints,
-		IsHidden:      req.Body.IsHidden,
-		SubcategoryID: req.Body.SubcategoryID,
-		DepartmentID:  req.Body.DepartmentID,
-		Embedding:     vector,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	resp.Body = result
-	return resp, nil
-}
-
 // ==================== READ ====================
 
 type GetTicketRequest struct {

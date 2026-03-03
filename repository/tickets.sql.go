@@ -40,60 +40,12 @@ func (q *Queries) CountTicketsByStatus(ctx context.Context, arg CountTicketsBySt
 	return count, err
 }
 
-const createTicket = `-- name: CreateTicket :one
-
-INSERT INTO tickets (
-    status,
-    complaints,
-    description,
-    is_hidden,
-    subcategory_id,
-    department_id,
-    embedding
-) VALUES (
-    $1, $2, $3, $4, $5, $6, $7
-) RETURNING id, status, complaints, description, is_hidden, subcategory_id, department_id, embedding, created_at
-`
-
-type CreateTicketParams struct {
-	Status        TicketStatus     `json:"status"`
-	Complaints    []string         `json:"complaints"`
-	Description   string           `json:"description"`
-	IsHidden      bool             `json:"is_hidden"`
-	SubcategoryID int32            `json:"subcategory_id"`
-	DepartmentID  *int32           `json:"department_id"`
-	Embedding     *pgvector.Vector `json:"embedding"`
-}
-
-// queries/tickets.sql
-func (q *Queries) CreateTicket(ctx context.Context, arg CreateTicketParams) (Ticket, error) {
-	row := q.db.QueryRow(ctx, createTicket,
-		arg.Status,
-		arg.Complaints,
-		arg.Description,
-		arg.IsHidden,
-		arg.SubcategoryID,
-		arg.DepartmentID,
-		arg.Embedding,
-	)
-	var i Ticket
-	err := row.Scan(
-		&i.ID,
-		&i.Status,
-		&i.Complaints,
-		&i.Description,
-		&i.IsHidden,
-		&i.SubcategoryID,
-		&i.DepartmentID,
-		&i.Embedding,
-		&i.CreatedAt,
-	)
-	return i, err
-}
-
 const createTicketWithDefaults = `-- name: CreateTicketWithDefaults :one
+
 INSERT INTO tickets (
+    -- Complaint data
     complaints,
+    -- End complaint data
     description,
     subcategory_id,
     department_id,
@@ -111,6 +63,7 @@ type CreateTicketWithDefaultsParams struct {
 	Embedding     *pgvector.Vector `json:"embedding"`
 }
 
+// queries/tickets.sql
 func (q *Queries) CreateTicketWithDefaults(ctx context.Context, arg CreateTicketWithDefaultsParams) (Ticket, error) {
 	row := q.db.QueryRow(ctx, createTicketWithDefaults,
 		arg.Complaints,

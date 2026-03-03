@@ -52,14 +52,6 @@ func MountRoutes(api huma.API, repo *repository.Queries, pool *pgxpool.Pool, red
 			Tags:        []string{"Tickets"},
 		}, ticketHandler.Post)
 
-		huma.Register(api, huma.Operation{
-			OperationID: "create-ticket-full",
-			Method:      http.MethodPost,
-			Path:        "/tickets/full",
-			Description: "Create a ticket with all fields specified",
-			Tags:        []string{"Tickets"},
-		}, ticketHandler.PostFull)
-
 		// Read
 		huma.Register(api, huma.Operation{
 			OperationID: "get-ticket",
