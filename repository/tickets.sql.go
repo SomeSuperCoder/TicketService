@@ -43,21 +43,26 @@ func (q *Queries) CountTicketsByStatus(ctx context.Context, arg CountTicketsBySt
 const createTicketWithDefaults = `-- name: CreateTicketWithDefaults :one
 
 INSERT INTO tickets (
-    -- Complaint data
-    complaints,
-    -- End complaint data
     description,
+    complaints,
     subcategory_id,
     department_id,
     embedding
 ) VALUES (
-    $1, $2, $3, $4, $5
+    $1,
+    ARRAY[ROW($2, $3, $4, ST_GeogFromText($5))::complaint_info],
+    $6, 
+    $7, 
+    $8
 ) RETURNING id, status, complaints, description, is_hidden, subcategory_id, department_id, embedding, created_at
 `
 
 type CreateTicketWithDefaultsParams struct {
-	Complaints    []string         `json:"complaints"`
 	Description   string           `json:"description"`
+	SenderName    string           `json:"sender_name"`
+	SenderPhone   string           `json:"sender_phone"`
+	SenderEmail   string           `json:"sender_email"`
+	GeoLocation   interface{}      `json:"geo_location"`
 	SubcategoryID int32            `json:"subcategory_id"`
 	DepartmentID  *int32           `json:"department_id"`
 	Embedding     *pgvector.Vector `json:"embedding"`
@@ -66,8 +71,11 @@ type CreateTicketWithDefaultsParams struct {
 // queries/tickets.sql
 func (q *Queries) CreateTicketWithDefaults(ctx context.Context, arg CreateTicketWithDefaultsParams) (Ticket, error) {
 	row := q.db.QueryRow(ctx, createTicketWithDefaults,
-		arg.Complaints,
 		arg.Description,
+		arg.SenderName,
+		arg.SenderPhone,
+		arg.SenderEmail,
+		arg.GeoLocation,
 		arg.SubcategoryID,
 		arg.DepartmentID,
 		arg.Embedding,

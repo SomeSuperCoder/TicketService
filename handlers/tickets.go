@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/SomeSuperCoder/OnlineShop/internal/embeddings"
 	"github.com/SomeSuperCoder/OnlineShop/repository"
@@ -16,10 +17,14 @@ type TicketHandler struct {
 
 type PostTicketRequest struct {
 	Body struct {
-		Description   string   `json:"description"`
-		Complaints    []string `json:"complaints"`
-		SubcategoryID int32    `json:"subcategory_id"`
-		DepartmentID  *int32   `json:"department_id,omitempty"`
+		Description   string  `json:"description"`
+		SenderName    string  `json:"sender_name"`
+		SenderPhone   string  `json:"sender_phone"`
+		SenderEmail   string  `json:"sender_email"`
+		Longitude     float64 `json:"longitude"`
+		Latitude      float64 `json:"latitude"`
+		SubcategoryID int32   `json:"subcategory_id"`
+		DepartmentID  *int32  `json:"department_id,omitempty"`
 	}
 }
 
@@ -36,9 +41,15 @@ func (h *TicketHandler) Post(ctx context.Context, req *PostTicketRequest) (*Post
 		return nil, err
 	}
 
+	// Create GeoJSON or WKT point
+	geoLocation := fmt.Sprintf("POINT(%f %f)", req.Body.Longitude, req.Body.Latitude)
+
 	result, err := h.Repo.CreateTicketWithDefaults(ctx, repository.CreateTicketWithDefaultsParams{
 		Description:   req.Body.Description,
-		Complaints:    req.Body.Complaints,
+		SenderName:    req.Body.SenderName,
+		SenderPhone:   req.Body.SenderPhone,
+		SenderEmail:   req.Body.SenderEmail,
+		GeoLocation:   geoLocation,
 		SubcategoryID: req.Body.SubcategoryID,
 		DepartmentID:  req.Body.DepartmentID,
 		Embedding:     vector,
@@ -54,7 +65,7 @@ func (h *TicketHandler) Post(ctx context.Context, req *PostTicketRequest) (*Post
 // ==================== READ ====================
 
 type GetTicketRequest struct {
-	ID uuid.UUID `param:"id"`
+	ID uuid.UUID `path:"id"`
 }
 
 type GetTicketResponse struct {
@@ -146,7 +157,7 @@ func (h *TicketHandler) GetByStatus(ctx context.Context, req *GetTicketsByStatus
 }
 
 type GetTicketsBySubcategoryRequest struct {
-	SubcategoryID int32 `param:"subcategoryId"`
+	SubcategoryID int32 `path:"subcategoryId"`
 	Limit         int32 `query:"limit" default:"10" maximum:"100"`
 	Offset        int32 `query:"offset" default:"0"`
 }
@@ -176,7 +187,7 @@ func (h *TicketHandler) GetBySubcategory(ctx context.Context, req *GetTicketsByS
 }
 
 type GetTicketsByDepartmentRequest struct {
-	DepartmentID int32 `param:"departmentId"`
+	DepartmentID int32 `path:"departmentId"`
 	Limit        int32 `query:"limit" default:"10" maximum:"100"`
 	Offset       int32 `query:"offset" default:"0"`
 }
@@ -239,7 +250,7 @@ func (h *TicketHandler) SearchByMeaning(ctx context.Context, req *SearchByMeanin
 // ==================== UPDATE ====================
 
 type UpdateTicketRequest struct {
-	ID   uuid.UUID `param:"id"`
+	ID   uuid.UUID `path:"id"`
 	Body struct {
 		Status        *repository.TicketStatus `json:"status,omitempty"`
 		Complaints    []string                 `json:"complaints,omitempty"`
@@ -308,7 +319,7 @@ func (h *TicketHandler) Update(ctx context.Context, req *UpdateTicketRequest) (*
 }
 
 type UpdateTicketStatusRequest struct {
-	ID   uuid.UUID `param:"id"`
+	ID   uuid.UUID `path:"id"`
 	Body struct {
 		Status repository.TicketStatus `json:"status" enum:"init,open,closed"`
 	}
@@ -336,7 +347,7 @@ func (h *TicketHandler) UpdateStatus(ctx context.Context, req *UpdateTicketStatu
 // ==================== DELETE / HIDE ====================
 
 type HideTicketRequest struct {
-	ID uuid.UUID `param:"id"`
+	ID uuid.UUID `path:"id"`
 }
 
 type HideTicketResponse struct {
@@ -360,7 +371,7 @@ func (h *TicketHandler) Hide(ctx context.Context, req *HideTicketRequest) (*Hide
 }
 
 type DeleteTicketRequest struct {
-	ID uuid.UUID `param:"id"`
+	ID uuid.UUID `path:"id"`
 }
 
 type DeleteTicketResponse struct {

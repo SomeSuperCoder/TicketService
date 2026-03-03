@@ -2,15 +2,17 @@
 
 -- name: CreateTicketWithDefaults :one
 INSERT INTO tickets (
-    -- Complaint data
-    complaints,
-    -- End complaint data
     description,
+    complaints,
     subcategory_id,
     department_id,
     embedding
 ) VALUES (
-    $1, $2, $3, $4, $5
+    sqlc.arg(description),
+    ARRAY[ROW(sqlc.arg(sender_name), sqlc.arg(sender_phone), sqlc.arg(sender_email), ST_GeogFromText(sqlc.arg(geo_location)))::complaint_info],
+    sqlc.arg(subcategory_id), 
+    sqlc.arg(department_id), 
+    sqlc.arg(embedding)
 ) RETURNING *;
 
 -- name: GetTicket :one
