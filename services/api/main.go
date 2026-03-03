@@ -50,7 +50,7 @@ func MountRoutes(api huma.API, repo *repository.Queries, pool *pgxpool.Pool, red
 		}, categoryHandler.Get)
 	}
 
-	ticketHandler := handlers.TicketHandler{Repo: repo}
+	ticketHandler := handlers.TicketHandler{Repo: repo, Pool: pool}
 
 	// Ticket Routes
 	{
@@ -90,13 +90,13 @@ func MountRoutes(api huma.API, repo *repository.Queries, pool *pgxpool.Pool, red
 		}, ticketHandler.SearchByMeaning)
 
 		// Update
-		huma.Register(api, huma.Operation{
-			OperationID: "update-ticket",
-			Method:      http.MethodPatch,
-			Path:        "/tickets/{id}",
-			Description: "Update a ticket",
-			Tags:        []string{"Tickets"},
-		}, ticketHandler.Update)
+		// huma.Register(api, huma.Operation{
+		// OperationID: "update-ticket",
+		// Method:      http.MethodPatch,
+		// Path:        "/tickets/{id}",
+		// Description: "Update a ticket",
+		// Tags:        []string{"Tickets"},
+		// }, ticketHandler.Update)
 
 		huma.Register(api, huma.Operation{
 			OperationID: "delete-ticket",

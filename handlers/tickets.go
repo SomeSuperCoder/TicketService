@@ -7,10 +7,12 @@ import (
 	"github.com/SomeSuperCoder/OnlineShop/internal/embeddings"
 	"github.com/SomeSuperCoder/OnlineShop/repository"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type TicketHandler struct {
 	Repo *repository.Queries
+	Pool *pgxpool.Pool
 }
 
 // ==================== CREATE ====================
@@ -19,8 +21,8 @@ type PostTicketRequest struct {
 	Body struct {
 		Description   string  `json:"description"`
 		SenderName    string  `json:"sender_name"`
-		SenderPhone   string  `json:"sender_phone"`
-		SenderEmail   string  `json:"sender_email"`
+		SenderPhone   string  `json:"sender_phone" default:"+1 500 555 0006"`
+		SenderEmail   *string `json:"sender_email" default:"test@example.com"`
 		Longitude     float64 `json:"longitude"`
 		Latitude      float64 `json:"latitude"`
 		SubcategoryID int32   `json:"subcategory_id"`
@@ -29,11 +31,22 @@ type PostTicketRequest struct {
 }
 
 type PostTicketResponse struct {
-	Body repository.Ticket
+	Body struct {
+		Ticket           repository.Ticket          `json:"ticket"`
+		ComplaintDetails repository.ComplaintDetail `json:"complaint_details"`
+	}
 }
 
 func (h *TicketHandler) Post(ctx context.Context, req *PostTicketRequest) (*PostTicketResponse, error) {
 	resp := new(PostTicketResponse)
+
+	tx, err := h.Pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+
+	qtx := h.Repo.WithTx(tx)
 
 	// Generate embedding from description
 	vector, err := embeddings.GetEmbedding(req.Body.Description)
@@ -44,12 +57,8 @@ func (h *TicketHandler) Post(ctx context.Context, req *PostTicketRequest) (*Post
 	// Create GeoJSON or WKT point
 	geoLocation := fmt.Sprintf("POINT(%f %f)", req.Body.Longitude, req.Body.Latitude)
 
-	result, err := h.Repo.CreateTicketWithDefaults(ctx, repository.CreateTicketWithDefaultsParams{
+	result, err := qtx.CreateTicketWithDefaults(ctx, repository.CreateTicketWithDefaultsParams{
 		Description:   req.Body.Description,
-		SenderName:    req.Body.SenderName,
-		SenderPhone:   req.Body.SenderPhone,
-		SenderEmail:   req.Body.SenderEmail,
-		GeoLocation:   geoLocation,
 		SubcategoryID: req.Body.SubcategoryID,
 		DepartmentID:  req.Body.DepartmentID,
 		Embedding:     vector,
@@ -57,8 +66,21 @@ func (h *TicketHandler) Post(ctx context.Context, req *PostTicketRequest) (*Post
 	if err != nil {
 		return nil, err
 	}
+	details, err := qtx.CreateComplaint(ctx, repository.CreateComplaintParams{
+		Ticket:      result.ID,
+		Description: req.Body.Description,
+		SenderName:  req.Body.SenderName,
+		SenderPhone: &req.Body.SenderPhone,
+		SenderEmail: req.Body.SenderEmail,
+		GeoLocation: geoLocation,
+	})
+	if err != nil {
+		return nil, err
+	}
 
-	resp.Body = result
+	resp.Body.Ticket = result
+	resp.Body.ComplaintDetails = details
+
 	return resp, nil
 }
 
@@ -153,76 +175,6 @@ func (h *TicketHandler) SearchByMeaning(ctx context.Context, req *SearchByMeanin
 }
 
 // ==================== UPDATE ====================
-
-type UpdateTicketRequest struct {
-	ID   uuid.UUID `path:"id"`
-	Body struct {
-		Status        *repository.TicketStatus `json:"status,omitempty"`
-		Complaints    []string                 `json:"complaints,omitempty"`
-		Description   *string                  `json:"description,omitempty"`
-		SubcategoryID *int32                   `json:"subcategory_id,omitempty"`
-		DepartmentID  *int32                   `json:"department_id,omitempty"`
-	}
-}
-
-type UpdateTicketResponse struct {
-	Body repository.Ticket
-}
-
-func (h *TicketHandler) Update(ctx context.Context, req *UpdateTicketRequest) (*UpdateTicketResponse, error) {
-	resp := new(UpdateTicketResponse)
-
-	// First get the current ticket to check if we need to regenerate embedding
-	currentTicket, err := h.Repo.GetTicket(ctx, repository.GetTicketParams{
-		ID: req.ID,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	// Prepare update params
-	params := repository.UpdateTicketParams{
-		ID:     req.ID,
-		Status: currentTicket.Status, // Will be overridden by COALESCE
-		// Complaints:    currentTicket.Complaints,
-		Description:   currentTicket.Description,
-		SubcategoryID: currentTicket.SubcategoryID,
-		DepartmentID:  currentTicket.DepartmentID,
-		// Embedding:     currentTicket.Embedding,
-	}
-
-	// Override with provided values
-	if req.Body.Status != nil {
-		params.Status = *req.Body.Status
-	}
-	if req.Body.Complaints != nil {
-		params.Complaints = req.Body.Complaints
-	}
-	if req.Body.Description != nil {
-		params.Description = *req.Body.Description
-		// Regenerate embedding if description changed
-		vector, err := embeddings.GetEmbedding(*req.Body.Description)
-		if err != nil {
-			return nil, err
-		}
-		params.Embedding = vector
-	}
-	if req.Body.SubcategoryID != nil {
-		params.SubcategoryID = *req.Body.SubcategoryID
-	}
-	if req.Body.DepartmentID != nil {
-		params.DepartmentID = req.Body.DepartmentID
-	}
-
-	result, err := h.Repo.UpdateTicket(ctx, params)
-	if err != nil {
-		return nil, err
-	}
-
-	resp.Body = result
-	return resp, nil
-}
-
 // ==================== DELETE / HIDE ====================
 type DeleteTicketRequest struct {
 	ID uuid.UUID `path:"id"`
