@@ -69,7 +69,7 @@ type GetTicketRequest struct {
 }
 
 type GetTicketResponse struct {
-	Body repository.Ticket
+	Body repository.GetTicketRow
 }
 
 func (h *TicketHandler) Get(ctx context.Context, req *GetTicketRequest) (*GetTicketResponse, error) {
@@ -182,13 +182,13 @@ func (h *TicketHandler) Update(ctx context.Context, req *UpdateTicketRequest) (*
 
 	// Prepare update params
 	params := repository.UpdateTicketParams{
-		ID:            req.ID,
-		Status:        currentTicket.Status, // Will be overridden by COALESCE
-		Complaints:    currentTicket.Complaints,
+		ID:     req.ID,
+		Status: currentTicket.Status, // Will be overridden by COALESCE
+		// Complaints:    currentTicket.Complaints,
 		Description:   currentTicket.Description,
 		SubcategoryID: currentTicket.SubcategoryID,
 		DepartmentID:  currentTicket.DepartmentID,
-		Embedding:     currentTicket.Embedding,
+		// Embedding:     currentTicket.Embedding,
 	}
 
 	// Override with provided values

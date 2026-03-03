@@ -3,20 +3,38 @@
 -- name: CreateTicketWithDefaults :one
 INSERT INTO tickets (
     description,
-    complaints,
     subcategory_id,
     department_id,
     embedding
 ) VALUES (
     sqlc.arg(description),
-    ARRAY[ROW(sqlc.arg(sender_name), sqlc.arg(sender_phone), sqlc.arg(sender_email), ST_GeogFromText(sqlc.arg(geo_location)))::complaint_info],
     sqlc.arg(subcategory_id), 
     sqlc.arg(department_id), 
     sqlc.arg(embedding)
 ) RETURNING *;
 
+-- name: CreateComplaint :one
+INSERT INTO complaint_details (
+  ticket,
+  description,
+  sender_name,
+  sender_phone,
+  sender_email,
+  geo_location
+) VALUES (
+  $1, $2, $3, $4, $5, $6
+) RETURNING *;
+
 -- name: GetTicket :one
-SELECT * FROM tickets
+SELECT
+  id,
+  status,
+  description,
+  is_hidden,
+  subcategory_id,
+  department_id,
+  created_at
+FROM tickets
 WHERE id = $1 AND is_hidden = false;
 
 -- name: ListTickets :many
@@ -29,11 +47,10 @@ LIMIT $1 OFFSET $2;
 UPDATE tickets
 SET 
     status = COALESCE($2, status),
-    complaints = COALESCE($3, complaints),
-    description = COALESCE($4, description),
-    subcategory_id = COALESCE($5, subcategory_id),
-    department_id = COALESCE($6, department_id),
-    embedding = COALESCE($7, embedding)
+    description = COALESCE($3, description),
+    subcategory_id = COALESCE($4, subcategory_id),
+    department_id = COALESCE($5, department_id),
+    embedding = COALESCE($6, embedding)
 WHERE id = $1 AND is_hidden = false
 RETURNING *;
 

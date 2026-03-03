@@ -7,6 +7,7 @@ package repository
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/pgvector/pgvector-go"
@@ -40,29 +41,67 @@ func (q *Queries) CountTicketsByStatus(ctx context.Context, arg CountTicketsBySt
 	return count, err
 }
 
+const createComplaint = `-- name: CreateComplaint :one
+INSERT INTO complaint_details (
+  ticket,
+  description,
+  sender_name,
+  sender_phone,
+  sender_email,
+  geo_location
+) VALUES (
+  $1, $2, $3, $4, $5, $6
+) RETURNING id, ticket, description, sender_name, sender_phone, sender_email, geo_location
+`
+
+type CreateComplaintParams struct {
+	Ticket      uuid.UUID   `json:"ticket"`
+	Description string      `json:"description"`
+	SenderName  string      `json:"sender_name"`
+	SenderPhone *string     `json:"sender_phone"`
+	SenderEmail *string     `json:"sender_email"`
+	GeoLocation interface{} `json:"geo_location"`
+}
+
+func (q *Queries) CreateComplaint(ctx context.Context, arg CreateComplaintParams) (ComplaintDetail, error) {
+	row := q.db.QueryRow(ctx, createComplaint,
+		arg.Ticket,
+		arg.Description,
+		arg.SenderName,
+		arg.SenderPhone,
+		arg.SenderEmail,
+		arg.GeoLocation,
+	)
+	var i ComplaintDetail
+	err := row.Scan(
+		&i.ID,
+		&i.Ticket,
+		&i.Description,
+		&i.SenderName,
+		&i.SenderPhone,
+		&i.SenderEmail,
+		&i.GeoLocation,
+	)
+	return i, err
+}
+
 const createTicketWithDefaults = `-- name: CreateTicketWithDefaults :one
 
 INSERT INTO tickets (
     description,
-    complaints,
     subcategory_id,
     department_id,
     embedding
 ) VALUES (
     $1,
-    ARRAY[ROW($2, $3, $4, ST_GeogFromText($5))::complaint_info],
-    $6, 
-    $7, 
-    $8
-) RETURNING id, status, complaints, description, is_hidden, subcategory_id, department_id, embedding, created_at
+    $2, 
+    $3, 
+    $4
+) RETURNING id, status, description, is_hidden, subcategory_id, department_id, embedding, created_at
 `
 
 type CreateTicketWithDefaultsParams struct {
 	Description   string           `json:"description"`
-	SenderName    string           `json:"sender_name"`
-	SenderPhone   string           `json:"sender_phone"`
-	SenderEmail   string           `json:"sender_email"`
-	GeoLocation   interface{}      `json:"geo_location"`
 	SubcategoryID int32            `json:"subcategory_id"`
 	DepartmentID  *int32           `json:"department_id"`
 	Embedding     *pgvector.Vector `json:"embedding"`
@@ -72,10 +111,6 @@ type CreateTicketWithDefaultsParams struct {
 func (q *Queries) CreateTicketWithDefaults(ctx context.Context, arg CreateTicketWithDefaultsParams) (Ticket, error) {
 	row := q.db.QueryRow(ctx, createTicketWithDefaults,
 		arg.Description,
-		arg.SenderName,
-		arg.SenderPhone,
-		arg.SenderEmail,
-		arg.GeoLocation,
 		arg.SubcategoryID,
 		arg.DepartmentID,
 		arg.Embedding,
@@ -84,7 +119,6 @@ func (q *Queries) CreateTicketWithDefaults(ctx context.Context, arg CreateTicket
 	err := row.Scan(
 		&i.ID,
 		&i.Status,
-		&i.Complaints,
 		&i.Description,
 		&i.IsHidden,
 		&i.SubcategoryID,
@@ -110,7 +144,15 @@ func (q *Queries) DeleteTicket(ctx context.Context, arg DeleteTicketParams) erro
 }
 
 const getTicket = `-- name: GetTicket :one
-SELECT id, status, complaints, description, is_hidden, subcategory_id, department_id, embedding, created_at FROM tickets
+SELECT
+  id,
+  status,
+  description,
+  is_hidden,
+  subcategory_id,
+  department_id,
+  created_at
+FROM tickets
 WHERE id = $1 AND is_hidden = false
 `
 
@@ -118,25 +160,33 @@ type GetTicketParams struct {
 	ID uuid.UUID `json:"id"`
 }
 
-func (q *Queries) GetTicket(ctx context.Context, arg GetTicketParams) (Ticket, error) {
+type GetTicketRow struct {
+	ID            uuid.UUID    `json:"id"`
+	Status        TicketStatus `json:"status"`
+	Description   string       `json:"description"`
+	IsHidden      bool         `json:"is_hidden"`
+	SubcategoryID int32        `json:"subcategory_id"`
+	DepartmentID  *int32       `json:"department_id"`
+	CreatedAt     time.Time    `json:"created_at"`
+}
+
+func (q *Queries) GetTicket(ctx context.Context, arg GetTicketParams) (GetTicketRow, error) {
 	row := q.db.QueryRow(ctx, getTicket, arg.ID)
-	var i Ticket
+	var i GetTicketRow
 	err := row.Scan(
 		&i.ID,
 		&i.Status,
-		&i.Complaints,
 		&i.Description,
 		&i.IsHidden,
 		&i.SubcategoryID,
 		&i.DepartmentID,
-		&i.Embedding,
 		&i.CreatedAt,
 	)
 	return i, err
 }
 
 const listTickets = `-- name: ListTickets :many
-SELECT id, status, complaints, description, is_hidden, subcategory_id, department_id, embedding, created_at FROM tickets
+SELECT id, status, description, is_hidden, subcategory_id, department_id, embedding, created_at FROM tickets
 WHERE is_hidden = false
 ORDER BY created_at DESC
 LIMIT $1 OFFSET $2
@@ -159,7 +209,6 @@ func (q *Queries) ListTickets(ctx context.Context, arg ListTicketsParams) ([]Tic
 		if err := rows.Scan(
 			&i.ID,
 			&i.Status,
-			&i.Complaints,
 			&i.Description,
 			&i.IsHidden,
 			&i.SubcategoryID,
@@ -178,7 +227,7 @@ func (q *Queries) ListTickets(ctx context.Context, arg ListTicketsParams) ([]Tic
 }
 
 const searchTicketsByEmbedding = `-- name: SearchTicketsByEmbedding :many
-SELECT id, status, complaints, description, is_hidden, subcategory_id, department_id, embedding, created_at FROM tickets
+SELECT id, status, description, is_hidden, subcategory_id, department_id, embedding, created_at FROM tickets
 WHERE is_hidden = false
 ORDER BY embedding <=> $1
 LIMIT $2
@@ -201,7 +250,6 @@ func (q *Queries) SearchTicketsByEmbedding(ctx context.Context, arg SearchTicket
 		if err := rows.Scan(
 			&i.ID,
 			&i.Status,
-			&i.Complaints,
 			&i.Description,
 			&i.IsHidden,
 			&i.SubcategoryID,
@@ -223,19 +271,17 @@ const updateTicket = `-- name: UpdateTicket :one
 UPDATE tickets
 SET 
     status = COALESCE($2, status),
-    complaints = COALESCE($3, complaints),
-    description = COALESCE($4, description),
-    subcategory_id = COALESCE($5, subcategory_id),
-    department_id = COALESCE($6, department_id),
-    embedding = COALESCE($7, embedding)
+    description = COALESCE($3, description),
+    subcategory_id = COALESCE($4, subcategory_id),
+    department_id = COALESCE($5, department_id),
+    embedding = COALESCE($6, embedding)
 WHERE id = $1 AND is_hidden = false
-RETURNING id, status, complaints, description, is_hidden, subcategory_id, department_id, embedding, created_at
+RETURNING id, status, description, is_hidden, subcategory_id, department_id, embedding, created_at
 `
 
 type UpdateTicketParams struct {
 	ID            uuid.UUID        `json:"id"`
 	Status        TicketStatus     `json:"status"`
-	Complaints    []string         `json:"complaints"`
 	Description   string           `json:"description"`
 	SubcategoryID int32            `json:"subcategory_id"`
 	DepartmentID  *int32           `json:"department_id"`
@@ -246,7 +292,6 @@ func (q *Queries) UpdateTicket(ctx context.Context, arg UpdateTicketParams) (Tic
 	row := q.db.QueryRow(ctx, updateTicket,
 		arg.ID,
 		arg.Status,
-		arg.Complaints,
 		arg.Description,
 		arg.SubcategoryID,
 		arg.DepartmentID,
@@ -256,7 +301,6 @@ func (q *Queries) UpdateTicket(ctx context.Context, arg UpdateTicketParams) (Tic
 	err := row.Scan(
 		&i.ID,
 		&i.Status,
-		&i.Complaints,
 		&i.Description,
 		&i.IsHidden,
 		&i.SubcategoryID,

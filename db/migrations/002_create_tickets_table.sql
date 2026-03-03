@@ -10,19 +10,10 @@ CREATE TYPE ticket_status AS ENUM (
   'closed'
 );
 
-CREATE TYPE complaint_info AS (
-    sender_name VARCHAR(150),
-    sender_phone VARCHAR(20),
-    sender_email VARCHAR(150),
-    geo_location    GEOGRAPHY(Point, 4326)
-);
-
 CREATE TABLE tickets (
     id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
 
-    -- Info
     status ticket_status NOT NULL DEFAULT 'init',
-    complaints complaint_info[] NOT NULL DEFAULT '{}',
     description TEXT NOT NULL,
     is_hidden BOOLEAN NOT NULL DEFAULT FALSE,
     subcategory_id INT NOT NULL REFERENCES subcategories(id) ON DELETE RESTRICT,
@@ -32,6 +23,32 @@ CREATE TABLE tickets (
     embedding   VECTOR(768) NOT NULL,
 
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE complaint_details (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+
+    ticket UUID NOT NULL REFERENCES tickets (id) ON DELETE CASCADE,
+    description TEXT NOT NULL,
+
+    sender_name VARCHAR(150) NOT NULL,
+    sender_phone VARCHAR(20),
+    sender_email VARCHAR(150),
+    geo_location GEOGRAPHY(Point, 4326),
+    
+    CONSTRAINT chk_sender_name_not_empty CHECK (LENGTH(TRIM(sender_name)) > 0),
+    CONSTRAINT chk_sender_phone_format CHECK (
+        sender_phone IS NULL OR 
+        sender_phone ~ '^[0-9+\-\s()]{10,20}$'
+    ),
+    CONSTRAINT chk_sender_email_format CHECK (
+        sender_email IS NULL OR 
+        sender_email ~ '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'
+    ),
+    CONSTRAINT chk_at_least_one_contact CHECK (
+        sender_phone IS NOT NULL OR 
+        sender_email IS NOT NULL
+    )
 );
 
 -- CREATE INDEX tickets_location_idx
@@ -44,9 +61,9 @@ USING ivfflat (embedding vector_cosine_ops)
 WITH (lists = 100);
 
 -- +goose Down
+DROP TABLE complaint_details ;
 DROP TABLE tickets;
 DROP TYPE ticket_status;
-DROP TYPE complaint_info;
 
 DROP EXTENSION "uuid-ossp";
 DROP EXTENSION pgcrypto;

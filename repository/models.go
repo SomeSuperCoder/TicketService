@@ -61,6 +61,16 @@ type Category struct {
 	Name string `json:"name"`
 }
 
+type ComplaintDetail struct {
+	ID          uuid.UUID   `json:"id"`
+	Ticket      uuid.UUID   `json:"ticket"`
+	Description string      `json:"description"`
+	SenderName  string      `json:"sender_name"`
+	SenderPhone *string     `json:"sender_phone"`
+	SenderEmail *string     `json:"sender_email"`
+	GeoLocation interface{} `json:"geo_location"`
+}
+
 type Department struct {
 	ID   int32  `json:"id"`
 	Name string `json:"name"`
@@ -85,7 +95,6 @@ type Subcategory struct {
 type Ticket struct {
 	ID            uuid.UUID        `json:"id"`
 	Status        TicketStatus     `json:"status"`
-	Complaints    []string         `json:"complaints"`
 	Description   string           `json:"description"`
 	IsHidden      bool             `json:"is_hidden"`
 	SubcategoryID int32            `json:"subcategory_id"`
