@@ -71,3 +71,9 @@ WHERE is_hidden = false;
 -- name: CountTicketsByStatus :one
 SELECT COUNT(*) FROM tickets
 WHERE status = $1 AND is_hidden = false;
+
+-- name: AlterMeaning :one
+UPDATE tickets
+SET embedding = avg(ARRAY[embedding, $1::vector(768)])
+WHERE id = $2
+RETURNING embedding;

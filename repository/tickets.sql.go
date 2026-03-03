@@ -13,6 +13,25 @@ import (
 	"github.com/pgvector/pgvector-go"
 )
 
+const alterMeaning = `-- name: AlterMeaning :one
+UPDATE tickets
+SET embedding = avg(ARRAY[embedding, $1::vector(768)])
+WHERE id = $2
+RETURNING embedding
+`
+
+type AlterMeaningParams struct {
+	Column1 *pgvector.Vector `json:"column_1"`
+	ID      uuid.UUID        `json:"id"`
+}
+
+func (q *Queries) AlterMeaning(ctx context.Context, arg AlterMeaningParams) (*pgvector.Vector, error) {
+	row := q.db.QueryRow(ctx, alterMeaning, arg.Column1, arg.ID)
+	var embedding *pgvector.Vector
+	err := row.Scan(&embedding)
+	return embedding, err
+}
+
 const countTickets = `-- name: CountTickets :one
 SELECT COUNT(*) FROM tickets
 WHERE is_hidden = false
