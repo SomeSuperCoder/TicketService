@@ -4,13 +4,30 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 CREATE EXTENSION IF NOT EXISTS postgis;
 CREATE EXTENSION IF NOT EXISTS vector;
 
+CREATE TYPE ticket_status AS ENUM (
+  'init',
+  'open',
+  'closed'
+);
+
+CREATE TYPE complaint_info AS (
+    name VARCHAR(150),
+    phone VARCHAR(20)
+);
+
 CREATE TABLE tickets (
     id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    title       TEXT NOT NULL,
+
+    -- Info
+    status status NOT NULL DEFAULT 'init',
+    complaints complaint_info[] NOT NULL DEFAULT '{}',
     description TEXT NOT NULL,
+    is_hidden BOOLEAN NOT NULL DEFAULT FALSE,
+    subcategory_id INT NOT NULL REFERENCES subcategories(id) ON DELETE RESTRICT,
+    department_id INT REFERENCES departments(id) ON DELETE SET NULL,
 
     -- Geo location (lon/lat)
-    location    GEOGRAPHY(Point, 4326) NOT NULL,
+    -- location    GEOGRAPHY(Point, 4326) NOT NULL,
 
     -- Semantic embedding
     embedding   VECTOR(768) NOT NULL,
@@ -18,9 +35,9 @@ CREATE TABLE tickets (
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX tickets_location_idx
-ON tickets
-USING GIST (location);
+-- CREATE INDEX tickets_location_idx
+-- ON tickets
+-- USING GIST (location);
 
 CREATE INDEX tickets_embedding_idx
 ON tickets
@@ -29,6 +46,8 @@ WITH (lists = 100);
 
 -- +goose Down
 DROP TABLE tickets;
+DROP TYPE status;
+
 DROP EXTENSION "uuid-ossp";
 DROP EXTENSION pgcrypto;
 DROP EXTENSION vector;
