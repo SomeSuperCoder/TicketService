@@ -25,12 +25,6 @@ WHERE is_hidden = false
 ORDER BY created_at DESC
 LIMIT $1 OFFSET $2;
 
--- name: UpdateTicketStatus :one
-UPDATE tickets
-SET status = $2
-WHERE id = $1 AND is_hidden = false
-RETURNING *;
-
 -- name: UpdateTicket :one
 UPDATE tickets
 SET 
@@ -43,11 +37,6 @@ SET
 WHERE id = $1 AND is_hidden = false
 RETURNING *;
 
--- name: HideTicket :exec
-UPDATE tickets
-SET is_hidden = true
-WHERE id = $1;
-
 -- name: DeleteTicket :exec
 DELETE FROM tickets
 WHERE id = $1;
@@ -57,27 +46,6 @@ SELECT * FROM tickets
 WHERE is_hidden = false
 ORDER BY embedding <=> $1
 LIMIT $2;
-
--- name: GetTicketsBySubcategory :many
-SELECT * FROM tickets
-WHERE subcategory_id = $1 
-  AND is_hidden = false
-ORDER BY created_at DESC
-LIMIT $2 OFFSET $3;
-
--- name: GetTicketsByDepartment :many
-SELECT * FROM tickets
-WHERE department_id = $1 
-  AND is_hidden = false
-ORDER BY created_at DESC
-LIMIT $2 OFFSET $3;
-
--- name: GetTicketsByStatus :many
-SELECT * FROM tickets
-WHERE status = $1 
-  AND is_hidden = false
-ORDER BY created_at DESC
-LIMIT $2 OFFSET $3;
 
 -- name: CountTickets :one
 SELECT COUNT(*) FROM tickets

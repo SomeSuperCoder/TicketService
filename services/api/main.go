@@ -39,6 +39,17 @@ func main() {
 }
 
 func MountRoutes(api huma.API, repo *repository.Queries, pool *pgxpool.Pool, redisClient *redis.Client, appConfig *internal.AppConfig) {
+	categoryHandler := handlers.CategoryHandler{Repo: repo}
+	{
+		huma.Register(api, huma.Operation{
+			OperationID: "get-categories",
+			Method:      http.MethodGet,
+			Path:        "/public/categories",
+			Description: "Get a tree of categories and subcategories",
+			Tags:        []string{"Categories"},
+		}, categoryHandler.Get)
+	}
+
 	ticketHandler := handlers.TicketHandler{Repo: repo}
 
 	// Ticket Routes
@@ -47,7 +58,7 @@ func MountRoutes(api huma.API, repo *repository.Queries, pool *pgxpool.Pool, red
 		huma.Register(api, huma.Operation{
 			OperationID: "create-ticket",
 			Method:      http.MethodPost,
-			Path:        "/tickets",
+			Path:        "/public/tickets",
 			Description: "Create a ticket with default values (status=init, is_hidden=false)",
 			Tags:        []string{"Tickets"},
 		}, ticketHandler.Post)
@@ -69,30 +80,6 @@ func MountRoutes(api huma.API, repo *repository.Queries, pool *pgxpool.Pool, red
 			Tags:        []string{"Tickets"},
 		}, ticketHandler.List)
 
-		huma.Register(api, huma.Operation{
-			OperationID: "get-tickets-by-status",
-			Method:      http.MethodGet,
-			Path:        "/tickets/status/{status}",
-			Description: "Get tickets by status",
-			Tags:        []string{"Tickets"},
-		}, ticketHandler.GetByStatus)
-
-		huma.Register(api, huma.Operation{
-			OperationID: "get-tickets-by-subcategory",
-			Method:      http.MethodGet,
-			Path:        "/tickets/subcategory/{subcategoryId}",
-			Description: "Get tickets by subcategory",
-			Tags:        []string{"Tickets"},
-		}, ticketHandler.GetBySubcategory)
-
-		huma.Register(api, huma.Operation{
-			OperationID: "get-tickets-by-department",
-			Method:      http.MethodGet,
-			Path:        "/tickets/department/{departmentId}",
-			Description: "Get tickets by department",
-			Tags:        []string{"Tickets"},
-		}, ticketHandler.GetByDepartment)
-
 		// Search
 		huma.Register(api, huma.Operation{
 			OperationID: "search-tickets-by-meaning",
@@ -110,23 +97,6 @@ func MountRoutes(api huma.API, repo *repository.Queries, pool *pgxpool.Pool, red
 			Description: "Update a ticket",
 			Tags:        []string{"Tickets"},
 		}, ticketHandler.Update)
-
-		huma.Register(api, huma.Operation{
-			OperationID: "update-ticket-status",
-			Method:      http.MethodPatch,
-			Path:        "/tickets/{id}/status",
-			Description: "Update ticket status",
-			Tags:        []string{"Tickets"},
-		}, ticketHandler.UpdateStatus)
-
-		// Delete/Hide
-		huma.Register(api, huma.Operation{
-			OperationID: "hide-ticket",
-			Method:      http.MethodDelete,
-			Path:        "/tickets/{id}/hide",
-			Description: "Soft delete a ticket (hide it)",
-			Tags:        []string{"Tickets"},
-		}, ticketHandler.Hide)
 
 		huma.Register(api, huma.Operation{
 			OperationID: "delete-ticket",
