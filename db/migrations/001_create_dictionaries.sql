@@ -21,6 +21,11 @@ CREATE TABLE departments (
     name VARCHAR(150) NOT NULL UNIQUE
 );
 
+CREATE TABLE tags (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(100) NOT NULL UNIQUE
+);
+
 -- 2. Create dependent dictionaries
 CREATE TABLE subcategories (
     id SERIAL PRIMARY KEY,
@@ -35,3 +40,4 @@ DROP TABLE statuses;
 DROP TABLE categories;
 DROP TABLE departments;
 DROP TABLE sources;
+DROP TABLE tags;

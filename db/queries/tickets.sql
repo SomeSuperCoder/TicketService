@@ -37,6 +37,18 @@ SELECT
 FROM tickets
 WHERE id = $1 AND is_hidden = false;
 
+-- name: GetDetailsForTicket :many
+SELECT
+  id,
+  description,
+  sender_name,
+  sender_phone,
+  sender_email,
+  geo_location
+FROM complaint_details
+WHERE ticket = $1;
+  
+
 -- name: ListTickets :many
 SELECT * FROM tickets
 WHERE is_hidden = false

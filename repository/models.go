@@ -92,6 +92,11 @@ type Subcategory struct {
 	Name       string `json:"name"`
 }
 
+type Tag struct {
+	ID   int32  `json:"id"`
+	Name string `json:"name"`
+}
+
 type Ticket struct {
 	ID            uuid.UUID        `json:"id"`
 	Status        TicketStatus     `json:"status"`

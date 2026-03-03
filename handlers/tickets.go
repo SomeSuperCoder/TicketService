@@ -81,6 +81,8 @@ func (h *TicketHandler) Post(ctx context.Context, req *PostTicketRequest) (*Post
 	resp.Body.Ticket = result
 	resp.Body.ComplaintDetails = details
 
+	tx.Commit(ctx)
+
 	return resp, nil
 }
 
@@ -91,26 +93,51 @@ type GetTicketRequest struct {
 }
 
 type GetTicketResponse struct {
-	Body repository.GetTicketRow
+	Body struct {
+		Ticket  repository.GetTicketRow             `json:"ticket"`
+		Details []repository.GetDetailsForTicketRow `json:"details"`
+	}
 }
 
 func (h *TicketHandler) Get(ctx context.Context, req *GetTicketRequest) (*GetTicketResponse, error) {
 	resp := new(GetTicketResponse)
 
-	result, err := h.Repo.GetTicket(ctx, repository.GetTicketParams{
+	tx, err := h.Pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+
+	qtx := h.Repo.WithTx(tx)
+
+	result, err := qtx.GetTicket(ctx, repository.GetTicketParams{
 		ID: req.ID,
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	resp.Body = result
+	details, err := qtx.GetDetailsForTicket(ctx, repository.GetDetailsForTicketParams{
+		Ticket: req.ID,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	resp.Body.Ticket = result
+	resp.Body.Details = details
+
+	tx.Commit(ctx)
+
 	return resp, nil
 }
 
 type ListTicketsRequest struct {
-	Limit  int32 `query:"limit" default:"10" maximum:"100"`
-	Offset int32 `query:"offset" default:"0"`
+	Limit         int32 `query:"limit" default:"10" maximum:"100"`
+	Offset        int32 `query:"offset" default:"0"`
+	StatusID      int32 `query:"status_id"`
+	CategoryID    int32 `query:"category_id"`
+	SubcategoryID int32 `query:"subcategory_id"`
 }
 
 type ListTicketsResponse struct {

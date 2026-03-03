@@ -162,6 +162,58 @@ func (q *Queries) DeleteTicket(ctx context.Context, arg DeleteTicketParams) erro
 	return err
 }
 
+const getDetailsForTicket = `-- name: GetDetailsForTicket :many
+SELECT
+  id,
+  description,
+  sender_name,
+  sender_phone,
+  sender_email,
+  geo_location
+FROM complaint_details
+WHERE ticket = $1
+`
+
+type GetDetailsForTicketParams struct {
+	Ticket uuid.UUID `json:"ticket"`
+}
+
+type GetDetailsForTicketRow struct {
+	ID          uuid.UUID   `json:"id"`
+	Description string      `json:"description"`
+	SenderName  string      `json:"sender_name"`
+	SenderPhone *string     `json:"sender_phone"`
+	SenderEmail *string     `json:"sender_email"`
+	GeoLocation interface{} `json:"geo_location"`
+}
+
+func (q *Queries) GetDetailsForTicket(ctx context.Context, arg GetDetailsForTicketParams) ([]GetDetailsForTicketRow, error) {
+	rows, err := q.db.Query(ctx, getDetailsForTicket, arg.Ticket)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetDetailsForTicketRow{}
+	for rows.Next() {
+		var i GetDetailsForTicketRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Description,
+			&i.SenderName,
+			&i.SenderPhone,
+			&i.SenderEmail,
+			&i.GeoLocation,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getTicket = `-- name: GetTicket :one
 SELECT
   id,
