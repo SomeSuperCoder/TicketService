@@ -13,6 +13,27 @@ import (
 	"github.com/pgvector/pgvector-go"
 )
 
+const addTagsToTicket = `-- name: AddTagsToTicket :execrows
+INSERT INTO ticket_tags (ticket, tag)
+SELECT
+  $1,
+  unnest($2::INTEGER[])
+ON CONFLICT DO NOTHING
+`
+
+type AddTagsToTicketParams struct {
+	Ticket uuid.UUID `json:"ticket"`
+	Tags   []int32   `json:"tags"`
+}
+
+func (q *Queries) AddTagsToTicket(ctx context.Context, arg AddTagsToTicketParams) (int64, error) {
+	result, err := q.db.Exec(ctx, addTagsToTicket, arg.Ticket, arg.Tags)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const countTickets = `-- name: CountTickets :one
 SELECT COUNT(*) FROM tickets
 WHERE is_hidden = false AND is_deleted = false
@@ -130,9 +151,27 @@ func (q *Queries) CreateTicketWithDefaults(ctx context.Context, arg CreateTicket
 	return i, err
 }
 
+const deleteTagsFromTicket = `-- name: DeleteTagsFromTicket :execrows
+DELETE FROM ticket_tags
+WHERE ticket = $1 AND tag = ANY($2::INTEGER[])
+`
+
+type DeleteTagsFromTicketParams struct {
+	Ticket uuid.UUID `json:"ticket"`
+	Tags   []int32   `json:"tags"`
+}
+
+func (q *Queries) DeleteTagsFromTicket(ctx context.Context, arg DeleteTagsFromTicketParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteTagsFromTicket, arg.Ticket, arg.Tags)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const deleteTicket = `-- name: DeleteTicket :one
 UPDATE tickets
-SET is_deleted = TRUE
+SET is_deleted = true
 WHERE id = $1
 RETURNING id, status, description, subcategory_id, department_id, embedding, is_hidden, is_deleted, created_at
 `
@@ -413,47 +452,30 @@ func (q *Queries) SearchTicketsByEmbedding(ctx context.Context, arg SearchTicket
 	return items, nil
 }
 
-const updateTicket = `-- name: UpdateTicket :one
+const updateTicketSimple = `-- name: UpdateTicketSimple :one
 UPDATE tickets
-SET 
-    status = COALESCE($2, status),
-    description = COALESCE($3, description),
-    subcategory_id = COALESCE($4, subcategory_id),
-    department_id = COALESCE($5, department_id),
-    embedding = COALESCE($6, embedding)
-WHERE id = $1 AND is_hidden = false AND is_deleted = false
-RETURNING id, status, description, subcategory_id, department_id, embedding, is_hidden, is_deleted, created_at
+SET
+  status = coalesce($1::ticket_status, status),
+  department_id = coalesce($2::INTEGER, department_id)
+WHERE is_hidden = false AND is_deleted = false AND
+  id = $3
+RETURNING status, department_id
 `
 
-type UpdateTicketParams struct {
-	ID            uuid.UUID        `json:"id"`
-	Status        TicketStatus     `json:"status"`
-	Description   string           `json:"description"`
-	SubcategoryID int32            `json:"subcategory_id"`
-	DepartmentID  *int32           `json:"department_id"`
-	Embedding     *pgvector.Vector `json:"embedding"`
+type UpdateTicketSimpleParams struct {
+	Status       NullTicketStatus `json:"status"`
+	DepartmentID *int32           `json:"department_id"`
+	ID           uuid.UUID        `json:"id"`
 }
 
-func (q *Queries) UpdateTicket(ctx context.Context, arg UpdateTicketParams) (Ticket, error) {
-	row := q.db.QueryRow(ctx, updateTicket,
-		arg.ID,
-		arg.Status,
-		arg.Description,
-		arg.SubcategoryID,
-		arg.DepartmentID,
-		arg.Embedding,
-	)
-	var i Ticket
-	err := row.Scan(
-		&i.ID,
-		&i.Status,
-		&i.Description,
-		&i.SubcategoryID,
-		&i.DepartmentID,
-		&i.Embedding,
-		&i.IsHidden,
-		&i.IsDeleted,
-		&i.CreatedAt,
-	)
+type UpdateTicketSimpleRow struct {
+	Status       TicketStatus `json:"status"`
+	DepartmentID *int32       `json:"department_id"`
+}
+
+func (q *Queries) UpdateTicketSimple(ctx context.Context, arg UpdateTicketSimpleParams) (UpdateTicketSimpleRow, error) {
+	row := q.db.QueryRow(ctx, updateTicketSimple, arg.Status, arg.DepartmentID, arg.ID)
+	var i UpdateTicketSimpleRow
+	err := row.Scan(&i.Status, &i.DepartmentID)
 	return i, err
 }

@@ -224,6 +224,71 @@ func (h *TicketHandler) SearchByMeaning(ctx context.Context, req *SearchByMeanin
 }
 
 // ==================== UPDATE ====================
+type UpdateTicketRequest struct {
+	TicketID uuid.UUID `path:"id"`
+	Body     struct {
+		Status       *repository.TicketStatus `json:"status,omitempty"`
+		DepartmentID *int32                   `json:"department_id,omitempty"`
+		AddTags      []int32                  `json:"add_tags,omitempty"`
+		RemoveTags   []int32                  `json:"remove_tags,omitempty"`
+	}
+}
+type UpdateTicketResponse struct {
+	Body repository.UpdateTicketSimpleRow
+}
+
+func (h *TicketHandler) Update(ctx context.Context, req *UpdateTicketRequest) (*UpdateTicketResponse, error) {
+	resp := new(UpdateTicketResponse)
+
+	tx, err := h.Pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+
+	qtx := h.Repo.WithTx(tx)
+
+	// Do the nullable status
+	var status repository.NullTicketStatus
+	if req.Body.Status != nil {
+		status.Valid = true
+		status.TicketStatus = *req.Body.Status
+	}
+
+	// Do the basic update
+	updateResult, err := qtx.UpdateTicketSimple(ctx, repository.UpdateTicketSimpleParams{
+		ID:           req.TicketID,
+		Status:       status,
+		DepartmentID: req.Body.DepartmentID,
+	})
+	if err != nil {
+		return nil, err
+	}
+	resp.Body = updateResult
+
+	// Add new tags
+	_, err = qtx.AddTagsToTicket(ctx, repository.AddTagsToTicketParams{
+		Ticket: req.TicketID,
+		Tags:   req.Body.AddTags,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// Remove some tags
+	_, err = qtx.DeleteTagsFromTicket(ctx, repository.DeleteTagsFromTicketParams{
+		Ticket: req.TicketID,
+		Tags:   req.Body.RemoveTags,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	tx.Commit(ctx)
+
+	return resp, nil
+}
+
 // ==================== DELETE / HIDE ====================
 type DeleteTicketRequest struct {
 	ID uuid.UUID `path:"id"`

@@ -90,20 +90,29 @@ GROUP BY t.id
 ORDER BY t.embedding <=> sqlc.arg('embedding')::vector
 LIMIT sqlc.arg('limit')::INTEGER OFFSET sqlc.arg('offset')::INTEGER;
 
--- name: UpdateTicket :one
+-- name: UpdateTicketSimple :one
 UPDATE tickets
-SET 
-    status = COALESCE($2, status),
-    description = COALESCE($3, description),
-    subcategory_id = COALESCE($4, subcategory_id),
-    department_id = COALESCE($5, department_id),
-    embedding = COALESCE($6, embedding)
-WHERE id = $1 AND is_hidden = false AND is_deleted = false
-RETURNING *;
+SET
+  status = coalesce(sqlc.narg('status')::ticket_status, status),
+  department_id = coalesce(sqlc.narg('department_id')::INTEGER, department_id)
+WHERE is_hidden = false AND is_deleted = false AND
+  id = sqlc.arg(id)
+RETURNING status, department_id;
+
+-- name: DeleteTagsFromTicket :execrows
+DELETE FROM ticket_tags
+WHERE ticket = sqlc.arg(ticket) AND tag = ANY(sqlc.arg(tags)::INTEGER[]);
+
+-- name: AddTagsToTicket :execrows
+INSERT INTO ticket_tags (ticket, tag)
+SELECT
+  sqlc.arg(ticket),
+  unnest(sqlc.arg(tags)::INTEGER[])
+ON CONFLICT DO NOTHING;
 
 -- name: DeleteTicket :one
 UPDATE tickets
-SET is_deleted = TRUE
+SET is_deleted = true
 WHERE id = $1
 RETURNING *;
 
