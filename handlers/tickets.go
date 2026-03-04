@@ -230,22 +230,20 @@ type DeleteTicketRequest struct {
 }
 
 type DeleteTicketResponse struct {
-	Body struct {
-		Message string `json:"message"`
-	}
+	Body repository.Ticket
 }
 
 func (h *TicketHandler) Delete(ctx context.Context, req *DeleteTicketRequest) (*DeleteTicketResponse, error) {
 	resp := new(DeleteTicketResponse)
 
-	err := h.Repo.DeleteTicket(ctx, repository.DeleteTicketParams{
+	ticket, err := h.Repo.DeleteTicket(ctx, repository.DeleteTicketParams{
 		ID: req.ID,
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	resp.Body.Message = "Ticket deleted successfully"
+	resp.Body = ticket
 	return resp, nil
 }
 

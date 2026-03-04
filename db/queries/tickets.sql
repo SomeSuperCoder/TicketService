@@ -35,19 +35,21 @@ SELECT
   department_id,
   created_at
 FROM tickets
-WHERE id = $1 AND is_hidden = false;
+WHERE id = $1 AND is_hidden = false AND is_deleted = false;
 
 -- name: GetDetailsForTicket :many
 SELECT
-  id,
-  description,
-  sender_name,
-  sender_phone,
-  sender_email,
-  geo_location
-FROM complaint_details
-WHERE ticket = $1;
-  
+  cd.id,
+  cd.description,
+  cd.sender_name,
+  cd.sender_phone,
+  cd.sender_email,
+  cd.geo_location
+FROM complaint_details cd
+INNER JOIN tickets t ON t.id = cd.ticket
+WHERE cd.ticket = $1
+  AND t.is_hidden = false
+  AND t.is_deleted = false;
 
 -- name: ListTickets :many
 SELECT
@@ -60,7 +62,7 @@ SELECT
   created_at
 FROM tickets
 WHERE
-  is_hidden = false AND
+  is_hidden = false AND is_deleted = false AND
   (sqlc.narg('status')::ticket_status IS NULL OR status = sqlc.narg('status')::ticket_status) AND
   (sqlc.narg('subcategory')::INTEGER IS NULL OR subcategory_id = sqlc.narg('subcategory')::INTEGER)
 ORDER BY embedding <=> sqlc.arg('embedding')::vector
@@ -74,12 +76,14 @@ SET
     subcategory_id = COALESCE($4, subcategory_id),
     department_id = COALESCE($5, department_id),
     embedding = COALESCE($6, embedding)
-WHERE id = $1 AND is_hidden = false
+WHERE id = $1 AND is_hidden = false AND is_deleted = false
 RETURNING *;
 
--- name: DeleteTicket :exec
-DELETE FROM tickets
-WHERE id = $1;
+-- name: DeleteTicket :one
+UPDATE tickets
+SET is_deleted = TRUE
+WHERE id = $1
+RETURNING *;
 
 -- name: SearchTicketsByEmbedding :many
 SELECT 
@@ -91,14 +95,14 @@ SELECT
   department_id,
   created_at
 FROM tickets
-WHERE is_hidden = false
+WHERE is_hidden = false AND is_deleted = false
 ORDER BY embedding <=> $1
 LIMIT $2;
 
 -- name: CountTickets :one
 SELECT COUNT(*) FROM tickets
-WHERE is_hidden = false;
+WHERE is_hidden = false AND is_deleted = false;
 
 -- name: CountTicketsByStatus :one
 SELECT COUNT(*) FROM tickets
-WHERE status = $1 AND is_hidden = false;
+WHERE status = $1 AND is_hidden = false AND is_deleted = false;

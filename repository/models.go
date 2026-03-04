@@ -102,9 +102,10 @@ type Ticket struct {
 	ID            uuid.UUID        `json:"id"`
 	Status        TicketStatus     `json:"status"`
 	Description   string           `json:"description"`
-	IsHidden      bool             `json:"is_hidden"`
 	SubcategoryID int32            `json:"subcategory_id"`
 	DepartmentID  *int32           `json:"department_id"`
 	Embedding     *pgvector.Vector `json:"embedding"`
+	IsHidden      bool             `json:"is_hidden"`
+	IsDeleted     bool             `json:"is_deleted"`
 	CreatedAt     time.Time        `json:"created_at"`
 }

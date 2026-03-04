@@ -16,12 +16,14 @@ CREATE TABLE tickets (
 
     status ticket_status NOT NULL DEFAULT 'init',
     description TEXT NOT NULL,
-    is_hidden BOOLEAN NOT NULL DEFAULT FALSE,
     subcategory_id INT NOT NULL REFERENCES subcategories(id) ON DELETE RESTRICT,
     department_id INT REFERENCES departments(id) ON DELETE SET NULL,
 
     -- Semantic embedding
     embedding   VECTOR(768) NOT NULL,
+
+    is_hidden BOOLEAN NOT NULL DEFAULT FALSE,
+    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
 
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );

@@ -15,7 +15,7 @@ import (
 
 const countTickets = `-- name: CountTickets :one
 SELECT COUNT(*) FROM tickets
-WHERE is_hidden = false
+WHERE is_hidden = false AND is_deleted = false
 `
 
 func (q *Queries) CountTickets(ctx context.Context) (int64, error) {
@@ -27,7 +27,7 @@ func (q *Queries) CountTickets(ctx context.Context) (int64, error) {
 
 const countTicketsByStatus = `-- name: CountTicketsByStatus :one
 SELECT COUNT(*) FROM tickets
-WHERE status = $1 AND is_hidden = false
+WHERE status = $1 AND is_hidden = false AND is_deleted = false
 `
 
 type CountTicketsByStatusParams struct {
@@ -97,7 +97,7 @@ INSERT INTO tickets (
     $2, 
     $3, 
     $4
-) RETURNING id, status, description, is_hidden, subcategory_id, department_id, embedding, created_at
+) RETURNING id, status, description, subcategory_id, department_id, embedding, is_hidden, is_deleted, created_at
 `
 
 type CreateTicketWithDefaultsParams struct {
@@ -120,39 +120,57 @@ func (q *Queries) CreateTicketWithDefaults(ctx context.Context, arg CreateTicket
 		&i.ID,
 		&i.Status,
 		&i.Description,
-		&i.IsHidden,
 		&i.SubcategoryID,
 		&i.DepartmentID,
 		&i.Embedding,
+		&i.IsHidden,
+		&i.IsDeleted,
 		&i.CreatedAt,
 	)
 	return i, err
 }
 
-const deleteTicket = `-- name: DeleteTicket :exec
-DELETE FROM tickets
+const deleteTicket = `-- name: DeleteTicket :one
+UPDATE tickets
+SET is_deleted = TRUE
 WHERE id = $1
+RETURNING id, status, description, subcategory_id, department_id, embedding, is_hidden, is_deleted, created_at
 `
 
 type DeleteTicketParams struct {
 	ID uuid.UUID `json:"id"`
 }
 
-func (q *Queries) DeleteTicket(ctx context.Context, arg DeleteTicketParams) error {
-	_, err := q.db.Exec(ctx, deleteTicket, arg.ID)
-	return err
+func (q *Queries) DeleteTicket(ctx context.Context, arg DeleteTicketParams) (Ticket, error) {
+	row := q.db.QueryRow(ctx, deleteTicket, arg.ID)
+	var i Ticket
+	err := row.Scan(
+		&i.ID,
+		&i.Status,
+		&i.Description,
+		&i.SubcategoryID,
+		&i.DepartmentID,
+		&i.Embedding,
+		&i.IsHidden,
+		&i.IsDeleted,
+		&i.CreatedAt,
+	)
+	return i, err
 }
 
 const getDetailsForTicket = `-- name: GetDetailsForTicket :many
 SELECT
-  id,
-  description,
-  sender_name,
-  sender_phone,
-  sender_email,
-  geo_location
-FROM complaint_details
-WHERE ticket = $1
+  cd.id,
+  cd.description,
+  cd.sender_name,
+  cd.sender_phone,
+  cd.sender_email,
+  cd.geo_location
+FROM complaint_details cd
+INNER JOIN tickets t ON t.id = cd.ticket
+WHERE cd.ticket = $1
+  AND t.is_hidden = false
+  AND t.is_deleted = false
 `
 
 type GetDetailsForTicketParams struct {
@@ -205,7 +223,7 @@ SELECT
   department_id,
   created_at
 FROM tickets
-WHERE id = $1 AND is_hidden = false
+WHERE id = $1 AND is_hidden = false AND is_deleted = false
 `
 
 type GetTicketParams struct {
@@ -248,7 +266,7 @@ SELECT
   created_at
 FROM tickets
 WHERE
-  is_hidden = false AND
+  is_hidden = false AND is_deleted = false AND
   ($1::ticket_status IS NULL OR status = $1::ticket_status) AND
   ($2::INTEGER IS NULL OR subcategory_id = $2::INTEGER)
 ORDER BY embedding <=> $3::vector
@@ -317,7 +335,7 @@ SELECT
   department_id,
   created_at
 FROM tickets
-WHERE is_hidden = false
+WHERE is_hidden = false AND is_deleted = false
 ORDER BY embedding <=> $1
 LIMIT $2
 `
@@ -373,8 +391,8 @@ SET
     subcategory_id = COALESCE($4, subcategory_id),
     department_id = COALESCE($5, department_id),
     embedding = COALESCE($6, embedding)
-WHERE id = $1 AND is_hidden = false
-RETURNING id, status, description, is_hidden, subcategory_id, department_id, embedding, created_at
+WHERE id = $1 AND is_hidden = false AND is_deleted = false
+RETURNING id, status, description, subcategory_id, department_id, embedding, is_hidden, is_deleted, created_at
 `
 
 type UpdateTicketParams struct {
@@ -400,10 +418,11 @@ func (q *Queries) UpdateTicket(ctx context.Context, arg UpdateTicketParams) (Tic
 		&i.ID,
 		&i.Status,
 		&i.Description,
-		&i.IsHidden,
 		&i.SubcategoryID,
 		&i.DepartmentID,
 		&i.Embedding,
+		&i.IsHidden,
+		&i.IsDeleted,
 		&i.CreatedAt,
 	)
 	return i, err
