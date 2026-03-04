@@ -116,5 +116,12 @@ func MountRoutes(api huma.API, repo *repository.Queries, pool *pgxpool.Pool, red
 			Description: "General ticket stats",
 			Tags:        []string{"Statistics"},
 		}, statisticsHandler.GetSummary)
+		huma.Register(api, huma.Operation{
+			OperationID: "category-stats",
+			Method:      http.MethodGet,
+			Path:        "/statistics/categories",
+			Description: "Stats for each category",
+			Tags:        []string{"Statistics"},
+		}, statisticsHandler.GetCategoryStatistics)
 	}
 }

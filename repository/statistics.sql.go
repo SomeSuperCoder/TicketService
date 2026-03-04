@@ -9,6 +9,46 @@ import (
 	"context"
 )
 
+const getCategoryStatistics = `-- name: GetCategoryStatistics :many
+SELECT 
+    c.id,
+    c.name,
+    COUNT(t.id) as ticket_count
+FROM categories c
+LEFT JOIN subcategories sc ON sc.category_id = c.id
+LEFT JOIN tickets t ON t.subcategory_id = sc.id 
+    AND t.is_deleted = false 
+    AND t.is_hidden = false
+GROUP BY c.id, c.name
+ORDER BY ticket_count DESC, c.name
+`
+
+type GetCategoryStatisticsRow struct {
+	ID          int32  `json:"id"`
+	Name        string `json:"name"`
+	TicketCount int64  `json:"ticket_count"`
+}
+
+func (q *Queries) GetCategoryStatistics(ctx context.Context) ([]GetCategoryStatisticsRow, error) {
+	rows, err := q.db.Query(ctx, getCategoryStatistics)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetCategoryStatisticsRow{}
+	for rows.Next() {
+		var i GetCategoryStatisticsRow
+		if err := rows.Scan(&i.ID, &i.Name, &i.TicketCount); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getStatisticsSummary = `-- name: GetStatisticsSummary :one
 SELECT
     COUNT(*) FILTER (WHERE is_deleted = false AND is_hidden = false) AS total,

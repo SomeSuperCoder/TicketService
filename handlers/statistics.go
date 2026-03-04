@@ -26,3 +26,21 @@ func (h *StatisticsHandler) GetSummary(ctx context.Context, req *struct{}) (*Get
 
 	return resp, nil
 }
+
+// ==========================================
+
+type GetCategoryStatisticsResponse struct {
+	Body []repository.GetCategoryStatisticsRow
+}
+
+func (h *StatisticsHandler) GetCategoryStatistics(ctx context.Context, req *struct{}) (*GetCategoryStatisticsResponse, error) {
+	resp := new(GetCategoryStatisticsResponse)
+
+	result, err := h.Repo.GetCategoryStatistics(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	resp.Body = result
+	return resp, nil
+}
