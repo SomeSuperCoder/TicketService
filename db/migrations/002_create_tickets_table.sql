@@ -5,6 +5,7 @@ CREATE EXTENSION IF NOT EXISTS postgis;
 CREATE EXTENSION IF NOT EXISTS vector;
 
 CREATE TYPE ticket_status AS ENUM (
+  'none',
   'init',
   'open',
   'closed'

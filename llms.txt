@@ -31,7 +31,7 @@ DONE | `GET` | `/api/appeals/:id` | Карточка обращения | Вся
 | `DELETE`| `/api/appeals/:id`| Удаление обращения (сокрытие) | Soft delete (пометка как удаленного). |
 LATER | `POST` | `/api/appeals/:id/comments` | Добавить комментарий | Текст, возможные файлы прикрепления. |
 LATER | `GET` | `/api/appeals/:id/history` | История действий | Массив изменений статусов и действий пользователей по обращению. |
-| `POST` | `/api/appeals/merge` | Объединение дубликатов | `primary_id`, `duplicate_id`. Склейка обращений. |
+DONE | `POST` | `/api/appeals/merge` | Объединение дубликатов | `primary_id`, `duplicate_id`. Склейка обращений. |
 
 ### 3. CRM: Дашборд и Статистика (`/api/statistics`)
 

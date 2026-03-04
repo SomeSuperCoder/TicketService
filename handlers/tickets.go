@@ -132,27 +132,49 @@ func (h *TicketHandler) Get(ctx context.Context, req *GetTicketRequest) (*GetTic
 	return resp, nil
 }
 
+// Left: `tags`
 type ListTicketsRequest struct {
-	Limit         int32 `query:"limit" default:"10" maximum:"100"`
-	Offset        int32 `query:"offset" default:"0"`
-	StatusID      int32 `query:"status_id"`
-	CategoryID    int32 `query:"category_id"`
-	SubcategoryID int32 `query:"subcategory_id"`
+	Query         string                  `query:"query"`
+	Limit         int32                   `query:"limit" default:"10" maximum:"100"`
+	Offset        int32                   `query:"offset" default:"0"`
+	Status        repository.TicketStatus `query:"status_id"`
+	SubcategoryID int32                   `query:"subcategory_id"`
 }
 
 type ListTicketsResponse struct {
 	Body struct {
-		Tickets []repository.Ticket `json:"tickets"`
-		Total   int64               `json:"total"`
+		Tickets []repository.ListTicketsRow `json:"tickets"`
+		Total   int64                       `json:"total"`
 	}
 }
 
 func (h *TicketHandler) List(ctx context.Context, req *ListTicketsRequest) (*ListTicketsResponse, error) {
 	resp := new(ListTicketsResponse)
 
+	vector, err := embeddings.GetEmbedding(req.Query)
+	if err != nil {
+		return nil, err
+	}
+
+	// Defaults
+	var statusValid bool = false
+	if req.Status != repository.TicketStatusNone {
+		statusValid = true
+	}
+	var subcategoryID *int32
+	if req.SubcategoryID != 0 {
+		subcategoryID = &req.SubcategoryID
+	}
+
 	tickets, err := h.Repo.ListTickets(ctx, repository.ListTicketsParams{
 		Limit:  req.Limit,
 		Offset: req.Offset,
+		Status: repository.NullTicketStatus{
+			TicketStatus: req.Status,
+			Valid:        statusValid,
+		},
+		Subcategory: subcategoryID,
+		Embedding:   vector,
 	})
 	if err != nil {
 		return nil, err

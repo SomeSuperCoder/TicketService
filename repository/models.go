@@ -16,6 +16,7 @@ import (
 type TicketStatus string
 
 const (
+	TicketStatusNone   TicketStatus = "none"
 	TicketStatusInit   TicketStatus = "init"
 	TicketStatusOpen   TicketStatus = "open"
 	TicketStatusClosed TicketStatus = "closed"

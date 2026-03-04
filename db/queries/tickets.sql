@@ -50,10 +50,21 @@ WHERE ticket = $1;
   
 
 -- name: ListTickets :many
-SELECT * FROM tickets
-WHERE is_hidden = false
-ORDER BY created_at DESC
-LIMIT $1 OFFSET $2;
+SELECT
+  id,
+  status,
+  description,
+  is_hidden,
+  subcategory_id,
+  department_id,
+  created_at
+FROM tickets
+WHERE
+  is_hidden = false AND
+  (sqlc.narg('status')::ticket_status IS NULL OR status = sqlc.narg('status')::ticket_status) AND
+  (sqlc.narg('subcategory')::INTEGER IS NULL OR subcategory_id = sqlc.narg('subcategory')::INTEGER)
+ORDER BY embedding <=> sqlc.arg('embedding')::vector
+LIMIT sqlc.arg('limit')::INTEGER OFFSET sqlc.arg('offset')::INTEGER;
 
 -- name: UpdateTicket :one
 UPDATE tickets

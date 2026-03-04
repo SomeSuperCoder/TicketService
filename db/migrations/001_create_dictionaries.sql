@@ -3,27 +3,32 @@
 
 CREATE TABLE sources (
   id SERIAL PRIMARY KEY,
-  name VARCHAR(100) NOT NULL UNIQUE
+  name VARCHAR(100) NOT NULL UNIQUE,
+  CONSTRAINT id_no_zero CHECK (id != 0)
 );
 
 CREATE TABLE statuses (
     id SERIAL PRIMARY KEY,
-    name VARCHAR(100) NOT NULL UNIQUE
+    name VARCHAR(100) NOT NULL UNIQUE,
+    CONSTRAINT id_no_zero CHECK (id != 0)
 );
 
 CREATE TABLE categories (
     id SERIAL PRIMARY KEY,
-    name VARCHAR(100) NOT NULL UNIQUE
+    name VARCHAR(100) NOT NULL UNIQUE,
+    CONSTRAINT id_no_zero CHECK (id != 0)
 );
 
 CREATE TABLE departments (
     id SERIAL PRIMARY KEY,
-    name VARCHAR(150) NOT NULL UNIQUE
+    name VARCHAR(150) NOT NULL UNIQUE,
+    CONSTRAINT id_no_zero CHECK (id != 0)
 );
 
 CREATE TABLE tags (
   id SERIAL PRIMARY KEY,
-  name VARCHAR(100) NOT NULL UNIQUE
+  name VARCHAR(100) NOT NULL UNIQUE,
+  CONSTRAINT id_no_zero CHECK (id != 0)
 );
 
 -- 2. Create dependent dictionaries

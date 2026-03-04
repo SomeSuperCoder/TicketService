@@ -25,7 +25,7 @@ func main() {
 
 	apiGroup := r.Group("/api/v1")
 	humaConfig := huma.DefaultConfig(
-		"Ticke API Huma + Gin API",
+		"Ticket Huma + Gin API",
 		"1.0.0",
 	)
 	humaConfig.Servers = []*huma.Server{

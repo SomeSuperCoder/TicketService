@@ -238,26 +238,56 @@ func (q *Queries) GetTicket(ctx context.Context, arg GetTicketParams) (GetTicket
 }
 
 const listTickets = `-- name: ListTickets :many
-SELECT id, status, description, is_hidden, subcategory_id, department_id, embedding, created_at FROM tickets
-WHERE is_hidden = false
-ORDER BY created_at DESC
-LIMIT $1 OFFSET $2
+SELECT
+  id,
+  status,
+  description,
+  is_hidden,
+  subcategory_id,
+  department_id,
+  created_at
+FROM tickets
+WHERE
+  is_hidden = false AND
+  ($1::ticket_status IS NULL OR status = $1::ticket_status) AND
+  ($2::INTEGER IS NULL OR subcategory_id = $2::INTEGER)
+ORDER BY embedding <=> $3::vector
+LIMIT $5::INTEGER OFFSET $4::INTEGER
 `
 
 type ListTicketsParams struct {
-	Limit  int32 `json:"limit"`
-	Offset int32 `json:"offset"`
+	Status      NullTicketStatus `json:"status"`
+	Subcategory *int32           `json:"subcategory"`
+	Embedding   *pgvector.Vector `json:"embedding"`
+	Offset      int32            `json:"offset"`
+	Limit       int32            `json:"limit"`
 }
 
-func (q *Queries) ListTickets(ctx context.Context, arg ListTicketsParams) ([]Ticket, error) {
-	rows, err := q.db.Query(ctx, listTickets, arg.Limit, arg.Offset)
+type ListTicketsRow struct {
+	ID            uuid.UUID    `json:"id"`
+	Status        TicketStatus `json:"status"`
+	Description   string       `json:"description"`
+	IsHidden      bool         `json:"is_hidden"`
+	SubcategoryID int32        `json:"subcategory_id"`
+	DepartmentID  *int32       `json:"department_id"`
+	CreatedAt     time.Time    `json:"created_at"`
+}
+
+func (q *Queries) ListTickets(ctx context.Context, arg ListTicketsParams) ([]ListTicketsRow, error) {
+	rows, err := q.db.Query(ctx, listTickets,
+		arg.Status,
+		arg.Subcategory,
+		arg.Embedding,
+		arg.Offset,
+		arg.Limit,
+	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []Ticket{}
+	items := []ListTicketsRow{}
 	for rows.Next() {
-		var i Ticket
+		var i ListTicketsRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Status,
@@ -265,7 +295,6 @@ func (q *Queries) ListTickets(ctx context.Context, arg ListTicketsParams) ([]Tic
 			&i.IsHidden,
 			&i.SubcategoryID,
 			&i.DepartmentID,
-			&i.Embedding,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err
