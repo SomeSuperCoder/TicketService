@@ -171,4 +171,24 @@ func MountRoutes(api huma.API, repo *repository.Queries, pool *pgxpool.Pool, red
 			Tags:        []string{"Comments"},
 		}, commentsHandler.Get)
 	}
+
+	// Heatmap Routes
+	heatmapHandler := handlers.HeatmapHandler{Repo: repo, Pool: pool}
+	{
+		huma.Register(api, huma.Operation{
+			OperationID: "get-heatmap-points",
+			Method:      http.MethodGet,
+			Path:        "/heatmap/points",
+			Description: "Get points for rendering on the map with intensity",
+			Tags:        []string{"Heatmap"},
+		}, heatmapHandler.GetPoints)
+
+		huma.Register(api, huma.Operation{
+			OperationID: "get-heatmap-stats",
+			Method:      http.MethodGet,
+			Path:        "/heatmap/stats",
+			Description: "Get heatmap statistics including top problem locations",
+			Tags:        []string{"Heatmap"},
+		}, heatmapHandler.GetStats)
+	}
 }
