@@ -317,7 +317,16 @@ WHERE
   ($1::ticket_status IS NULL OR t.status = $1::ticket_status) AND
   ($2::INTEGER IS NULL OR t.subcategory_id = $2::INTEGER)
 GROUP BY t.id
-ORDER BY t.embedding <=> $3::vector
+ORDER BY 
+  CASE 
+    WHEN $3::vector IS NULL THEN 0
+    ELSE 1
+  END,
+  CASE 
+    WHEN $3::vector IS NOT NULL THEN t.embedding <=> $3::vector
+    ELSE NULL
+  END,
+  t.created_at DESC
 LIMIT $5::INTEGER OFFSET $4::INTEGER
 `
 

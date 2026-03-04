@@ -9,6 +9,7 @@ import (
 	"github.com/SomeSuperCoder/OnlineShop/repository"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/pgvector/pgvector-go"
 )
 
 type TicketHandler struct {
@@ -167,9 +168,14 @@ type ListTicketsResponse struct {
 func (h *TicketHandler) List(ctx context.Context, req *ListTicketsRequest) (*ListTicketsResponse, error) {
 	resp := new(ListTicketsResponse)
 
-	vector, err := embeddings.GetEmbedding(req.Query)
-	if err != nil {
-		return nil, err
+	// Only generate embedding if query is not empty
+	var vector *pgvector.Vector
+	if req.Query != "" {
+		v, err := embeddings.GetEmbedding(req.Query)
+		if err != nil {
+			return nil, err
+		}
+		vector = v
 	}
 
 	// Defaults

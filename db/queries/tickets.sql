@@ -87,7 +87,16 @@ WHERE
   (sqlc.narg('status')::ticket_status IS NULL OR t.status = sqlc.narg('status')::ticket_status) AND
   (sqlc.narg('subcategory')::INTEGER IS NULL OR t.subcategory_id = sqlc.narg('subcategory')::INTEGER)
 GROUP BY t.id
-ORDER BY t.embedding <=> sqlc.arg('embedding')::vector
+ORDER BY 
+  CASE 
+    WHEN sqlc.narg('embedding')::vector IS NULL THEN 0
+    ELSE 1
+  END,
+  CASE 
+    WHEN sqlc.narg('embedding')::vector IS NOT NULL THEN t.embedding <=> sqlc.narg('embedding')::vector
+    ELSE NULL
+  END,
+  t.created_at DESC
 LIMIT sqlc.arg('limit')::INTEGER OFFSET sqlc.arg('offset')::INTEGER;
 
 -- name: UpdateTicketSimple :one
