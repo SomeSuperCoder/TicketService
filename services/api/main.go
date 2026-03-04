@@ -102,8 +102,19 @@ func MountRoutes(api huma.API, repo *repository.Queries, pool *pgxpool.Pool, red
 			OperationID: "merge-duplicates",
 			Method:      http.MethodPost,
 			Path:        "/tickets/merge",
-			Description: "Merrge duplicate tickets",
+			Description: "Merge duplicate tickets",
 			Tags:        []string{"Tickets"},
 		}, ticketHandler.Merge)
+	}
+
+	statisticsHandler := handlers.StatisticsHandler{Repo: repo}
+	{
+		huma.Register(api, huma.Operation{
+			OperationID: "stats-summary",
+			Method:      http.MethodGet,
+			Path:        "/statistics/summary",
+			Description: "General ticket stats",
+			Tags:        []string{"Statistics"},
+		}, statisticsHandler.GetSummary)
 	}
 }
