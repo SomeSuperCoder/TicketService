@@ -35,28 +35,11 @@ func (q *Queries) AddTagsToTicket(ctx context.Context, arg AddTagsToTicketParams
 }
 
 const countTickets = `-- name: CountTickets :one
-SELECT COUNT(*) FROM tickets
-WHERE is_hidden = false AND is_deleted = false
+SELECT COUNT(*) FROM tickets WHERE is_hidden = false AND is_deleted = false
 `
 
 func (q *Queries) CountTickets(ctx context.Context) (int64, error) {
 	row := q.db.QueryRow(ctx, countTickets)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
-const countTicketsByStatus = `-- name: CountTicketsByStatus :one
-SELECT COUNT(*) FROM tickets
-WHERE status = $1 AND is_hidden = false AND is_deleted = false
-`
-
-type CountTicketsByStatusParams struct {
-	Status TicketStatus `json:"status"`
-}
-
-func (q *Queries) CountTicketsByStatus(ctx context.Context, arg CountTicketsByStatusParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countTicketsByStatus, arg.Status)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -383,64 +366,6 @@ func (q *Queries) ListTickets(ctx context.Context, arg ListTicketsParams) ([]Lis
 			&i.CreatedAt,
 			&i.TagIds,
 			&i.TagNames,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const searchTicketsByEmbedding = `-- name: SearchTicketsByEmbedding :many
-SELECT 
-  id,
-  status,
-  description,
-  is_hidden,
-  subcategory_id,
-  department_id,
-  created_at
-FROM tickets
-WHERE is_hidden = false AND is_deleted = false
-ORDER BY embedding <=> $1
-LIMIT $2
-`
-
-type SearchTicketsByEmbeddingParams struct {
-	Embedding *pgvector.Vector `json:"embedding"`
-	Limit     int32            `json:"limit"`
-}
-
-type SearchTicketsByEmbeddingRow struct {
-	ID            uuid.UUID    `json:"id"`
-	Status        TicketStatus `json:"status"`
-	Description   string       `json:"description"`
-	IsHidden      bool         `json:"is_hidden"`
-	SubcategoryID int32        `json:"subcategory_id"`
-	DepartmentID  *int32       `json:"department_id"`
-	CreatedAt     time.Time    `json:"created_at"`
-}
-
-func (q *Queries) SearchTicketsByEmbedding(ctx context.Context, arg SearchTicketsByEmbeddingParams) ([]SearchTicketsByEmbeddingRow, error) {
-	rows, err := q.db.Query(ctx, searchTicketsByEmbedding, arg.Embedding, arg.Limit)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []SearchTicketsByEmbeddingRow{}
-	for rows.Next() {
-		var i SearchTicketsByEmbeddingRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.Status,
-			&i.Description,
-			&i.IsHidden,
-			&i.SubcategoryID,
-			&i.DepartmentID,
-			&i.CreatedAt,
 		); err != nil {
 			return nil, err
 		}

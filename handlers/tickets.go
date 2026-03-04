@@ -190,39 +190,6 @@ func (h *TicketHandler) List(ctx context.Context, req *ListTicketsRequest) (*Lis
 	return resp, nil
 }
 
-// ==================== SEARCH ====================
-
-type SearchByMeaningRequest struct {
-	Query string `query:"query"`
-	Limit int32  `query:"limit" default:"10" maximum:"50"`
-}
-
-type SearchByMeaningResponse struct {
-	Body struct {
-		Tickets []repository.SearchTicketsByEmbeddingRow `json:"tickets"`
-	}
-}
-
-func (h *TicketHandler) SearchByMeaning(ctx context.Context, req *SearchByMeaningRequest) (*SearchByMeaningResponse, error) {
-	resp := new(SearchByMeaningResponse)
-
-	vector, err := embeddings.GetEmbedding(req.Query)
-	if err != nil {
-		return nil, err
-	}
-
-	result, err := h.Repo.SearchTicketsByEmbedding(ctx, repository.SearchTicketsByEmbeddingParams{
-		Embedding: vector,
-		Limit:     req.Limit,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	resp.Body.Tickets = result
-	return resp, nil
-}
-
 // ==================== UPDATE ====================
 type UpdateTicketRequest struct {
 	TicketID uuid.UUID `path:"id"`
@@ -309,28 +276,6 @@ func (h *TicketHandler) Delete(ctx context.Context, req *DeleteTicketRequest) (*
 	}
 
 	resp.Body = ticket
-	return resp, nil
-}
-
-// ==================== COUNT ====================
-
-type CountTicketsRequest struct{}
-
-type CountTicketsResponse struct {
-	Body struct {
-		Count int64 `json:"count"`
-	}
-}
-
-func (h *TicketHandler) Count(ctx context.Context, req *CountTicketsRequest) (*CountTicketsResponse, error) {
-	resp := new(CountTicketsResponse)
-
-	count, err := h.Repo.CountTickets(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	resp.Body.Count = count
 	return resp, nil
 }
 

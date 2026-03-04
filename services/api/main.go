@@ -80,15 +80,6 @@ func MountRoutes(api huma.API, repo *repository.Queries, pool *pgxpool.Pool, red
 			Tags:        []string{"Tickets"},
 		}, ticketHandler.List)
 
-		// Search
-		huma.Register(api, huma.Operation{
-			OperationID: "search-tickets-by-meaning",
-			Method:      http.MethodGet,
-			Path:        "/tickets/search/meaning",
-			Description: "Search for tickets based upon semantic meaning",
-			Tags:        []string{"Tickets"},
-		}, ticketHandler.SearchByMeaning)
-
 		// Update
 		huma.Register(api, huma.Operation{
 			OperationID: "update-ticket",
@@ -105,15 +96,6 @@ func MountRoutes(api huma.API, repo *repository.Queries, pool *pgxpool.Pool, red
 			Description: "Permanently delete a ticket",
 			Tags:        []string{"Tickets"},
 		}, ticketHandler.Delete)
-
-		// Count
-		huma.Register(api, huma.Operation{
-			OperationID: "count-tickets",
-			Method:      http.MethodGet,
-			Path:        "/tickets/count",
-			Description: "Get total count of non-hidden tickets",
-			Tags:        []string{"Tickets"},
-		}, ticketHandler.Count)
 
 		// Merge
 		huma.Register(api, huma.Operation{

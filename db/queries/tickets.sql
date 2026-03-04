@@ -116,24 +116,5 @@ SET is_deleted = true
 WHERE id = $1
 RETURNING *;
 
--- name: SearchTicketsByEmbedding :many
-SELECT 
-  id,
-  status,
-  description,
-  is_hidden,
-  subcategory_id,
-  department_id,
-  created_at
-FROM tickets
-WHERE is_hidden = false AND is_deleted = false
-ORDER BY embedding <=> $1
-LIMIT $2;
-
 -- name: CountTickets :one
-SELECT COUNT(*) FROM tickets
-WHERE is_hidden = false AND is_deleted = false;
-
--- name: CountTicketsByStatus :one
-SELECT COUNT(*) FROM tickets
-WHERE status = $1 AND is_hidden = false AND is_deleted = false;
+SELECT COUNT(*) FROM tickets WHERE is_hidden = false AND is_deleted = false;
