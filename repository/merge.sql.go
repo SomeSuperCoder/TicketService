@@ -31,7 +31,8 @@ WITH avg_embedding AS (
     WHERE id = ANY($2::UUID[])
 )
 UPDATE tickets 
-SET embedding = (SELECT merged_embedding FROM avg_embedding)
+SET embedding = (SELECT merged_embedding FROM avg_embedding),
+    status = 'open'
 WHERE tickets.id = $1
 `
 
