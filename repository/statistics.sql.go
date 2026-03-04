@@ -7,6 +7,9 @@ package repository
 
 import (
 	"context"
+	"time"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const getCategoryStatistics = `-- name: GetCategoryStatistics :many
@@ -90,4 +93,96 @@ func (q *Queries) GetStatisticsSummary(ctx context.Context) (GetStatisticsSummar
 		&i.ActiveExecutors,
 	)
 	return i, err
+}
+
+const getTicketDynamics = `-- name: GetTicketDynamics :many
+SELECT
+    DATE(created_at) as date,
+    COUNT(*) FILTER (WHERE action = 'created') as received,
+    COUNT(*) FILTER (WHERE action = 'status_changed' 
+        AND new_value::jsonb->>'status' = 'closed') as resolved
+FROM ticket_history
+WHERE 
+    created_at >= $1
+    AND created_at <= $2
+    AND action IN ('created', 'status_changed')
+GROUP BY DATE(created_at)
+ORDER BY date ASC
+`
+
+type GetTicketDynamicsParams struct {
+	StartDate time.Time `json:"start_date"`
+	EndDate   time.Time `json:"end_date"`
+}
+
+type GetTicketDynamicsRow struct {
+	Date     pgtype.Date `json:"date"`
+	Received int64       `json:"received"`
+	Resolved int64       `json:"resolved"`
+}
+
+func (q *Queries) GetTicketDynamics(ctx context.Context, arg GetTicketDynamicsParams) ([]GetTicketDynamicsRow, error) {
+	rows, err := q.db.Query(ctx, getTicketDynamics, arg.StartDate, arg.EndDate)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetTicketDynamicsRow{}
+	for rows.Next() {
+		var i GetTicketDynamicsRow
+		if err := rows.Scan(&i.Date, &i.Received, &i.Resolved); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getTicketDynamicsByWeek = `-- name: GetTicketDynamicsByWeek :many
+SELECT
+    DATE_TRUNC('week', created_at)::DATE as week_start,
+    COUNT(*) FILTER (WHERE action = 'created') as received,
+    COUNT(*) FILTER (WHERE action = 'status_changed' 
+        AND new_value::jsonb->>'status' = 'closed') as resolved
+FROM ticket_history
+WHERE 
+    created_at >= $1
+    AND created_at <= $2
+    AND action IN ('created', 'status_changed')
+GROUP BY DATE_TRUNC('week', created_at)
+ORDER BY week_start ASC
+`
+
+type GetTicketDynamicsByWeekParams struct {
+	StartDate time.Time `json:"start_date"`
+	EndDate   time.Time `json:"end_date"`
+}
+
+type GetTicketDynamicsByWeekRow struct {
+	WeekStart pgtype.Date `json:"week_start"`
+	Received  int64       `json:"received"`
+	Resolved  int64       `json:"resolved"`
+}
+
+func (q *Queries) GetTicketDynamicsByWeek(ctx context.Context, arg GetTicketDynamicsByWeekParams) ([]GetTicketDynamicsByWeekRow, error) {
+	rows, err := q.db.Query(ctx, getTicketDynamicsByWeek, arg.StartDate, arg.EndDate)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetTicketDynamicsByWeekRow{}
+	for rows.Next() {
+		var i GetTicketDynamicsByWeekRow
+		if err := rows.Scan(&i.WeekStart, &i.Received, &i.Resolved); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }

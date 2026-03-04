@@ -123,6 +123,13 @@ func MountRoutes(api huma.API, repo *repository.Queries, pool *pgxpool.Pool, red
 			Description: "Stats for each category",
 			Tags:        []string{"Statistics"},
 		}, statisticsHandler.GetCategoryStatistics)
+		huma.Register(api, huma.Operation{
+			OperationID: "stats-dynamics",
+			Method:      http.MethodGet,
+			Path:        "/statistics/dynamics",
+			Description: "Ticket dynamics over time (received and resolved)",
+			Tags:        []string{"Statistics"},
+		}, statisticsHandler.GetDynamics)
 	}
 
 	// History Routes

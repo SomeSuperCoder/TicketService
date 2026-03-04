@@ -33,3 +33,31 @@ LEFT JOIN tickets t ON t.subcategory_id = sc.id
     AND t.is_hidden = false
 GROUP BY c.id, c.name
 ORDER BY ticket_count DESC, c.name;
+
+-- name: GetTicketDynamics :many
+SELECT
+    DATE(created_at) as date,
+    COUNT(*) FILTER (WHERE action = 'created') as received,
+    COUNT(*) FILTER (WHERE action = 'status_changed' 
+        AND new_value::jsonb->>'status' = 'closed') as resolved
+FROM ticket_history
+WHERE 
+    created_at >= sqlc.arg('start_date')
+    AND created_at <= sqlc.arg('end_date')
+    AND action IN ('created', 'status_changed')
+GROUP BY DATE(created_at)
+ORDER BY date ASC;
+
+-- name: GetTicketDynamicsByWeek :many
+SELECT
+    DATE_TRUNC('week', created_at)::DATE as week_start,
+    COUNT(*) FILTER (WHERE action = 'created') as received,
+    COUNT(*) FILTER (WHERE action = 'status_changed' 
+        AND new_value::jsonb->>'status' = 'closed') as resolved
+FROM ticket_history
+WHERE 
+    created_at >= sqlc.arg('start_date')
+    AND created_at <= sqlc.arg('end_date')
+    AND action IN ('created', 'status_changed')
+GROUP BY DATE_TRUNC('week', created_at)
+ORDER BY week_start ASC;
