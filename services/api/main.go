@@ -124,4 +124,44 @@ func MountRoutes(api huma.API, repo *repository.Queries, pool *pgxpool.Pool, red
 			Tags:        []string{"Statistics"},
 		}, statisticsHandler.GetCategoryStatistics)
 	}
+
+	// History Routes
+	historyHandler := handlers.HistoryHandler{Repo: repo, Pool: pool}
+	{
+		huma.Register(api, huma.Operation{
+			OperationID: "get-ticket-history",
+			Method:      http.MethodGet,
+			Path:        "/tickets/{id}/history",
+			Description: "Get history of actions and status changes for a ticket",
+			Tags:        []string{"History"},
+		}, historyHandler.GetTicketHistory)
+
+		huma.Register(api, huma.Operation{
+			OperationID: "get-recent-history",
+			Method:      http.MethodGet,
+			Path:        "/history/recent",
+			Description: "Get recent history across all tickets",
+			Tags:        []string{"History"},
+		}, historyHandler.GetRecentHistory)
+	}
+
+	// Comments Routes
+	commentsHandler := handlers.CommentsHandler{Repo: repo, Pool: pool}
+	{
+		huma.Register(api, huma.Operation{
+			OperationID: "create-comment",
+			Method:      http.MethodPost,
+			Path:        "/tickets/{id}/comments",
+			Description: "Add a comment to a ticket",
+			Tags:        []string{"Comments"},
+		}, commentsHandler.Post)
+
+		huma.Register(api, huma.Operation{
+			OperationID: "get-comments",
+			Method:      http.MethodGet,
+			Path:        "/tickets/{id}/comments",
+			Description: "Get all comments for a ticket",
+			Tags:        []string{"Comments"},
+		}, commentsHandler.Get)
+	}
 }

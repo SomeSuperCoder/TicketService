@@ -13,6 +13,54 @@ import (
 	"github.com/pgvector/pgvector-go"
 )
 
+type HistoryAction string
+
+const (
+	HistoryActionCreated           HistoryAction = "created"
+	HistoryActionStatusChanged     HistoryAction = "status_changed"
+	HistoryActionDepartmentChanged HistoryAction = "department_changed"
+	HistoryActionTagsAdded         HistoryAction = "tags_added"
+	HistoryActionTagsRemoved       HistoryAction = "tags_removed"
+	HistoryActionCommentAdded      HistoryAction = "comment_added"
+	HistoryActionMerged            HistoryAction = "merged"
+	HistoryActionDeleted           HistoryAction = "deleted"
+)
+
+func (e *HistoryAction) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = HistoryAction(s)
+	case string:
+		*e = HistoryAction(s)
+	default:
+		return fmt.Errorf("unsupported scan type for HistoryAction: %T", src)
+	}
+	return nil
+}
+
+type NullHistoryAction struct {
+	HistoryAction HistoryAction `json:"history_action"`
+	Valid         bool          `json:"valid"` // Valid is true if HistoryAction is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullHistoryAction) Scan(value interface{}) error {
+	if value == nil {
+		ns.HistoryAction, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.HistoryAction.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullHistoryAction) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.HistoryAction), nil
+}
+
 type TicketStatus string
 
 const (
@@ -62,6 +110,12 @@ type Category struct {
 	Name string `json:"name"`
 }
 
+type Comment struct {
+	ID      uuid.UUID `json:"id"`
+	Ticket  uuid.UUID `json:"ticket"`
+	Message string    `json:"message"`
+}
+
 type ComplaintDetail struct {
 	ID          uuid.UUID   `json:"id"`
 	Ticket      uuid.UUID   `json:"ticket"`
@@ -108,6 +162,19 @@ type Ticket struct {
 	IsHidden      bool             `json:"is_hidden"`
 	IsDeleted     bool             `json:"is_deleted"`
 	CreatedAt     time.Time        `json:"created_at"`
+}
+
+type TicketHistory struct {
+	ID          uuid.UUID     `json:"id"`
+	TicketID    uuid.UUID     `json:"ticket_id"`
+	Action      HistoryAction `json:"action"`
+	OldValue    []byte        `json:"old_value"`
+	NewValue    []byte        `json:"new_value"`
+	UserID      *uuid.UUID    `json:"user_id"`
+	UserName    *string       `json:"user_name"`
+	UserEmail   *string       `json:"user_email"`
+	Description *string       `json:"description"`
+	CreatedAt   time.Time     `json:"created_at"`
 }
 
 type TicketTag struct {
