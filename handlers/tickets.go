@@ -177,7 +177,7 @@ type SearchByMeaningRequest struct {
 
 type SearchByMeaningResponse struct {
 	Body struct {
-		Tickets []repository.Ticket `json:"tickets"`
+		Tickets []repository.SearchTicketsByEmbeddingRow `json:"tickets"`
 	}
 }
 
@@ -246,5 +246,57 @@ func (h *TicketHandler) Count(ctx context.Context, req *CountTicketsRequest) (*C
 	}
 
 	resp.Body.Count = count
+	return resp, nil
+}
+
+// =================== MERGE ====================
+type MergeRequest struct {
+	Body struct {
+		Original   uuid.UUID   `json:"original"`
+		Duplicates []uuid.UUID `json:"duplicates"`
+	}
+}
+type MergeResonse struct {
+}
+
+func (h *TicketHandler) Merge(ctx context.Context, req *MergeRequest) (*MergeResonse, error) {
+	resp := new(MergeResonse)
+
+	tx, err := h.Pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+
+	qtx := h.Repo.WithTx(tx)
+
+	// Update the 'ticket' field for all details for a duplicates
+	_, err = qtx.UpdateDetailsParent(ctx, repository.UpdateDetailsParentParams{
+		Original:   req.Body.Original,
+		Duplicates: req.Body.Duplicates,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("Failed to update details ticket ownership: %w", err)
+	}
+
+	// Set the average embedding
+	err = qtx.MergeEmbeddings(ctx, repository.MergeEmbeddingsParams{
+		Original:  req.Body.Original,
+		Duplcates: req.Body.Duplicates,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("Failed to merge embeddings: %w", err)
+	}
+
+	// Delete obsolete tickets
+	err = qtx.DeleteAfterMerge(ctx, repository.DeleteAfterMergeParams{
+		Duplicates: req.Body.Duplicates,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	tx.Commit(ctx)
+
 	return resp, nil
 }

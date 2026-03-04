@@ -71,7 +71,15 @@ DELETE FROM tickets
 WHERE id = $1;
 
 -- name: SearchTicketsByEmbedding :many
-SELECT * FROM tickets
+SELECT 
+  id,
+  status,
+  description,
+  is_hidden,
+  subcategory_id,
+  department_id,
+  created_at
+FROM tickets
 WHERE is_hidden = false
 ORDER BY embedding <=> $1
 LIMIT $2;
@@ -83,9 +91,3 @@ WHERE is_hidden = false;
 -- name: CountTicketsByStatus :one
 SELECT COUNT(*) FROM tickets
 WHERE status = $1 AND is_hidden = false;
-
--- name: AlterMeaning :one
-UPDATE tickets
-SET embedding = avg(ARRAY[embedding, $1::vector(768)])
-WHERE id = $2
-RETURNING embedding;

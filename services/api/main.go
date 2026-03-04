@@ -114,5 +114,14 @@ func MountRoutes(api huma.API, repo *repository.Queries, pool *pgxpool.Pool, red
 			Description: "Get total count of non-hidden tickets",
 			Tags:        []string{"Tickets"},
 		}, ticketHandler.Count)
+
+		// Merge
+		huma.Register(api, huma.Operation{
+			OperationID: "merge-duplicates",
+			Method:      http.MethodPost,
+			Path:        "/tickets/merge",
+			Description: "Merrge duplicate tickets",
+			Tags:        []string{"Tickets"},
+		}, ticketHandler.Merge)
 	}
 }

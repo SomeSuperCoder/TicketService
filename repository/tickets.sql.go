@@ -13,25 +13,6 @@ import (
 	"github.com/pgvector/pgvector-go"
 )
 
-const alterMeaning = `-- name: AlterMeaning :one
-UPDATE tickets
-SET embedding = avg(ARRAY[embedding, $1::vector(768)])
-WHERE id = $2
-RETURNING embedding
-`
-
-type AlterMeaningParams struct {
-	Column1 *pgvector.Vector `json:"column_1"`
-	ID      uuid.UUID        `json:"id"`
-}
-
-func (q *Queries) AlterMeaning(ctx context.Context, arg AlterMeaningParams) (*pgvector.Vector, error) {
-	row := q.db.QueryRow(ctx, alterMeaning, arg.Column1, arg.ID)
-	var embedding *pgvector.Vector
-	err := row.Scan(&embedding)
-	return embedding, err
-}
-
 const countTickets = `-- name: CountTickets :one
 SELECT COUNT(*) FROM tickets
 WHERE is_hidden = false
@@ -298,7 +279,15 @@ func (q *Queries) ListTickets(ctx context.Context, arg ListTicketsParams) ([]Tic
 }
 
 const searchTicketsByEmbedding = `-- name: SearchTicketsByEmbedding :many
-SELECT id, status, description, is_hidden, subcategory_id, department_id, embedding, created_at FROM tickets
+SELECT 
+  id,
+  status,
+  description,
+  is_hidden,
+  subcategory_id,
+  department_id,
+  created_at
+FROM tickets
 WHERE is_hidden = false
 ORDER BY embedding <=> $1
 LIMIT $2
@@ -309,15 +298,25 @@ type SearchTicketsByEmbeddingParams struct {
 	Limit     int32            `json:"limit"`
 }
 
-func (q *Queries) SearchTicketsByEmbedding(ctx context.Context, arg SearchTicketsByEmbeddingParams) ([]Ticket, error) {
+type SearchTicketsByEmbeddingRow struct {
+	ID            uuid.UUID    `json:"id"`
+	Status        TicketStatus `json:"status"`
+	Description   string       `json:"description"`
+	IsHidden      bool         `json:"is_hidden"`
+	SubcategoryID int32        `json:"subcategory_id"`
+	DepartmentID  *int32       `json:"department_id"`
+	CreatedAt     time.Time    `json:"created_at"`
+}
+
+func (q *Queries) SearchTicketsByEmbedding(ctx context.Context, arg SearchTicketsByEmbeddingParams) ([]SearchTicketsByEmbeddingRow, error) {
 	rows, err := q.db.Query(ctx, searchTicketsByEmbedding, arg.Embedding, arg.Limit)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []Ticket{}
+	items := []SearchTicketsByEmbeddingRow{}
 	for rows.Next() {
-		var i Ticket
+		var i SearchTicketsByEmbeddingRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Status,
@@ -325,7 +324,6 @@ func (q *Queries) SearchTicketsByEmbedding(ctx context.Context, arg SearchTicket
 			&i.IsHidden,
 			&i.SubcategoryID,
 			&i.DepartmentID,
-			&i.Embedding,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err
