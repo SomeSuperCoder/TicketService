@@ -54,9 +54,15 @@ CREATE TABLE complaint_details (
     )
 );
 
--- CREATE INDEX tickets_location_idx
--- ON tickets
--- USING GIST (location);
+CREATE TABLE ticket_tags (
+  ticket UUID NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
+  tag INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+  CONSTRAINT uq_ticket_tag UNIQUE (ticket, tag)
+);
+
+CREATE INDEX complaint_details_location_idx
+ON complaint_details
+USING GIST (geo_location);
 
 CREATE INDEX tickets_embedding_idx
 ON tickets
@@ -67,6 +73,7 @@ WITH (lists = 100);
 DROP TABLE complaint_details ;
 DROP TABLE tickets;
 DROP TYPE ticket_status;
+DROP TABLE ticket_tags;
 
 DROP EXTENSION "uuid-ossp";
 DROP EXTENSION pgcrypto;

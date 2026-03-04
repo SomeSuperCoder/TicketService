@@ -109,3 +109,8 @@ type Ticket struct {
 	IsDeleted     bool             `json:"is_deleted"`
 	CreatedAt     time.Time        `json:"created_at"`
 }
+
+type TicketTag struct {
+	Ticket uuid.UUID `json:"ticket"`
+	Tag    int32     `json:"tag"`
+}

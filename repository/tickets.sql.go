@@ -215,15 +215,26 @@ func (q *Queries) GetDetailsForTicket(ctx context.Context, arg GetDetailsForTick
 
 const getTicket = `-- name: GetTicket :one
 SELECT
-  id,
-  status,
-  description,
-  is_hidden,
-  subcategory_id,
-  department_id,
-  created_at
-FROM tickets
-WHERE id = $1 AND is_hidden = false AND is_deleted = false
+  t.id,
+  t.status,
+  t.description,
+  t.is_hidden,
+  t.subcategory_id,
+  t.department_id,
+  t.created_at,
+  COALESCE(
+    array_agg(tags.id) FILTER (WHERE tags.id IS NOT NULL),
+    '{}'
+  )::INTEGER[] AS tag_ids,
+  COALESCE(
+    array_agg(tags.name) FILTER (WHERE tags.name IS NOT NULL),
+    '{}'
+  )::VARCHAR[] AS tag_names
+FROM tickets t
+LEFT JOIN ticket_tags ON ticket_tags.ticket = t.id
+LEFT JOIN tags ON tags.id = ticket_tags.tag
+WHERE t.id = $1 AND t.is_hidden = false AND t.is_deleted = false
+GROUP BY t.id
 `
 
 type GetTicketParams struct {
@@ -238,6 +249,8 @@ type GetTicketRow struct {
 	SubcategoryID int32        `json:"subcategory_id"`
 	DepartmentID  *int32       `json:"department_id"`
 	CreatedAt     time.Time    `json:"created_at"`
+	TagIds        []int32      `json:"tag_ids"`
+	TagNames      []string     `json:"tag_names"`
 }
 
 func (q *Queries) GetTicket(ctx context.Context, arg GetTicketParams) (GetTicketRow, error) {
@@ -251,25 +264,38 @@ func (q *Queries) GetTicket(ctx context.Context, arg GetTicketParams) (GetTicket
 		&i.SubcategoryID,
 		&i.DepartmentID,
 		&i.CreatedAt,
+		&i.TagIds,
+		&i.TagNames,
 	)
 	return i, err
 }
 
 const listTickets = `-- name: ListTickets :many
 SELECT
-  id,
-  status,
-  description,
-  is_hidden,
-  subcategory_id,
-  department_id,
-  created_at
-FROM tickets
+  t.id,
+  t.status,
+  t.description,
+  t.is_hidden,
+  t.subcategory_id,
+  t.department_id,
+  t.created_at,
+  COALESCE(
+    array_agg(tags.id) FILTER (WHERE tags.id IS NOT NULL),
+    '{}'
+  )::INTEGER[] AS tag_ids,
+  COALESCE(
+    array_agg(tags.name) FILTER (WHERE tags.name IS NOT NULL),
+    '{}'
+  )::VARCHAR[] AS tag_names
+FROM tickets t
+LEFT JOIN ticket_tags ON ticket_tags.ticket = t.id
+LEFT JOIN tags ON tags.id = ticket_tags.tag
 WHERE
-  is_hidden = false AND is_deleted = false AND
-  ($1::ticket_status IS NULL OR status = $1::ticket_status) AND
-  ($2::INTEGER IS NULL OR subcategory_id = $2::INTEGER)
-ORDER BY embedding <=> $3::vector
+  t.is_hidden = false AND t.is_deleted = false AND
+  ($1::ticket_status IS NULL OR t.status = $1::ticket_status) AND
+  ($2::INTEGER IS NULL OR t.subcategory_id = $2::INTEGER)
+GROUP BY t.id
+ORDER BY t.embedding <=> $3::vector
 LIMIT $5::INTEGER OFFSET $4::INTEGER
 `
 
@@ -289,6 +315,8 @@ type ListTicketsRow struct {
 	SubcategoryID int32        `json:"subcategory_id"`
 	DepartmentID  *int32       `json:"department_id"`
 	CreatedAt     time.Time    `json:"created_at"`
+	TagIds        []int32      `json:"tag_ids"`
+	TagNames      []string     `json:"tag_names"`
 }
 
 func (q *Queries) ListTickets(ctx context.Context, arg ListTicketsParams) ([]ListTicketsRow, error) {
@@ -314,6 +342,8 @@ func (q *Queries) ListTickets(ctx context.Context, arg ListTicketsParams) ([]Lis
 			&i.SubcategoryID,
 			&i.DepartmentID,
 			&i.CreatedAt,
+			&i.TagIds,
+			&i.TagNames,
 		); err != nil {
 			return nil, err
 		}
