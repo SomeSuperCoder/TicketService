@@ -54,9 +54,9 @@ All API endpoints will return meaningful, non-default values with this data load
 
 ## Documentation Files
 
-- [API_REFERENCE.md](API_REFERENCE.md) - Complete API endpoint reference
-- [ADMIN_USERS_API.md](ADMIN_USERS_API.md) - User management endpoints
-- [KPI_ENDPOINT.md](KPI_ENDPOINT.md) - KPI monitoring endpoint
+- [API_REFERENCE.md](API_REFERENCE.md) - Complete API endpoint reference with examples
+
+For detailed endpoint documentation, see API_REFERENCE.md or use the interactive Swagger UI.
 
 ## Quick Reference
 

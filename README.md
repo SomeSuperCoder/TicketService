@@ -119,7 +119,7 @@ Access the API at:
 - 🌐 **API Base**: http://localhost:8888/api/v1
 - 📖 **Swagger UI**: http://localhost:8888/api/v1/docs
 
-> 📘 **Detailed guide**: See [docs/QUICK_START.md](docs/QUICK_START.md)
+> 📘 **Detailed guide**: See [docs/](docs/)
 
 ---
 
@@ -172,13 +172,7 @@ curl http://localhost:8888/api/v1/statistics/summary
 │                    Client Layer                          │
 │         Web Browser • Mobile App • API Client           │
 └────────────────────┬────────────────────────────────────┘
-                     │ HTTPS
-                     ▼
-┌─────────────────────────────────────────────────────────┐
-│              Nginx (Reverse Proxy)                       │
-│        SSL Termination • Load Balancing                 │
-└────────────────────┬────────────────────────────────────┘
-                     │
+                     │ HTTP
                      ▼
 ┌─────────────────────────────────────────────────────────┐
 │           Go API Server (Gin + Huma)                    │
@@ -193,7 +187,7 @@ curl http://localhost:8888/api/v1/statistics/summary
         ▼            ▼            ▼
 ┌─────────────┐ ┌─────────┐ ┌─────────────┐
 │ PostgreSQL  │ │  Redis  │ │ AI Embeddings│
-│  + PostGIS  │ │ (Cache) │ │   Service    │
+│  + PostGIS  │ │ (Cache) │ │   (Ollama)   │
 │ + pgvector  │ │         │ │              │
 └─────────────┘ └─────────┘ └─────────────┘
 ```
@@ -202,10 +196,8 @@ curl http://localhost:8888/api/v1/statistics/summary
 - 🔷 **Backend**: Go 1.25.5 with Gin + Huma
 - 🐘 **Database**: PostgreSQL 14+ (PostGIS, pgvector)
 - 🔴 **Cache**: Redis 6.0+
-- 🤖 **AI**: Transformer-based embeddings (768D vectors)
+- 🤖 **AI**: Transformer-based embeddings (768D vectors via Ollama)
 - 🔧 **Tools**: sqlc, goose, Docker
-
-> 📐 **Deep dive**: See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 
 ---
 
@@ -328,20 +320,11 @@ Result: Beautiful Swagger UI with zero manual work! 🎉
 
 ## 📚 Documentation
 
-Comprehensive documentation for every use case:
+Complete documentation for developers:
 
-| Document | Description |
-|----------|-------------|
-| 📘 [Quick Start](docs/QUICK_START.md) | Get running in 5 minutes |
-| 🏗️ [Architecture](docs/ARCHITECTURE.md) | System design and decisions |
-| 🔧 [Development Guide](docs/DEVELOPMENT_GUIDE.md) | Workflow and best practices |
-| 🚀 [Deployment](docs/DEPLOYMENT.md) | Production deployment guide |
-| 📖 [API Reference](docs/API_REFERENCE.md) | Complete endpoint documentation |
-| 🗄️ [Database Schema](docs/DATABASE_SCHEMA.md) | Full schema documentation |
-| 🤖 [AI & Duplicates](docs/EMBEDDINGS_AND_DUPLICATES.md) | How duplicate detection works |
-| 🔍 [Troubleshooting](docs/TROUBLESHOOTING.md) | Common issues and solutions |
-| 👥 [Admin API](docs/ADMIN_USERS_API.md) | User management endpoints |
-| 📊 [KPI Endpoint](docs/KPI_ENDPOINT.md) | Monitoring metrics |
+- 📖 [API Reference](docs/API_REFERENCE.md) - Complete endpoint documentation
+- 👥 [Admin API](docs/ADMIN_USERS_API.md) - User management endpoints
+- � [KPiI Endpoint](docs/KPI_ENDPOINT.md) - Monitoring metrics
 
 ---
 
@@ -353,6 +336,7 @@ Comprehensive documentation for every use case:
 - PostgreSQL 14+ with PostGIS and pgvector
 - Redis 6.0+
 - Docker & Docker Compose
+- Ollama (for AI embeddings)
 
 ### Setup
 
@@ -371,6 +355,7 @@ nano .env
 # Start development
 make databases  # Start PostgreSQL + Redis
 make migrate    # Run migrations + generate code
+make mock       # Load mock data
 make serve      # Start API server
 ```
 
@@ -397,58 +382,13 @@ make redis          # Connect to Redis
 4. **Add handler**: Create in `handlers/`
 5. **Register route**: Update `services/api/main.go`
 
-> 🔧 **Full guide**: [docs/DEVELOPMENT_GUIDE.md](docs/DEVELOPMENT_GUIDE.md)
-
----
-
-## 🚀 Deployment
-
-### Docker Compose (Recommended)
-
-```bash
-# Production deployment
-docker-compose -f docker-compose.prod.yml up -d
-
-# Check status
-docker-compose ps
-
-# View logs
-docker-compose logs -f api
-```
-
-### Manual Deployment
-
-```bash
-# Build binary
-go build -o appeals-api services/api/main.go
-
-# Run with systemd
-sudo systemctl start appeals-api
-
-# Behind Nginx reverse proxy
-sudo systemctl start nginx
-```
-
-> 🚀 **Complete guide**: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
-
 ---
 
 ## 📈 Performance
 
-### Benchmarks
-
 - **API Response Time**: < 50ms (p95)
 - **Vector Search**: < 100ms for 100k tickets
-- **Concurrent Users**: 1000+ simultaneous
-- **Database**: 10k+ tickets/second insert rate
-
-### Optimizations
-
-- ⚡ Connection pooling (pgxpool)
-- 🔍 IVFFlat index for vector search
-- 📦 Redis caching for hot data
-- 🗜️ Gzip compression
-- 🔄 Async operations with goroutines
+- **Database**: Optimized with indexes and connection pooling
 
 ---
 
@@ -456,10 +396,8 @@ sudo systemctl start nginx
 
 - 🔐 JWT authentication (planned)
 - 🛡️ SQL injection protection (parameterized queries)
-- 🔒 HTTPS/TLS in production
-- 🚫 Rate limiting (Nginx + Redis)
-- 📝 Complete audit trail
-- 🔑 Role-based access control
+- � CompletLe audit trail
+- � Raole-based access control
 
 ---
 
@@ -520,9 +458,8 @@ Total                       54         8850         7420          770
 ## 📞 Support
 
 - 📖 **Documentation**: [docs/](docs/)
-- 🐛 **Issues**: [GitHub Issues](https://github.com/...)
-- 💬 **Discussions**: [GitHub Discussions](https://github.com/...)
-- 📧 **Email**: support@example.com
+- 🐛 **Issues**: GitHub Issues
+- 💬 **Discussions**: GitHub Discussions
 
 ---
 
