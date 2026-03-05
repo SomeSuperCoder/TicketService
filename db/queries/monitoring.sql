@@ -66,3 +66,84 @@ WHERE
     AND t.status IN ('open', 'init')
     AND GREATEST(0, EXTRACT(DAY FROM CURRENT_DATE - (COALESCE(tss.status_start_date, tc.created_date, t.created_at)::DATE + INTERVAL '7 days')))::INTEGER >= sqlc.arg('min_lost_days')::INTEGER
     AND (sqlc.narg('department_id')::INTEGER IS NULL OR t.department_id = sqlc.narg('department_id')::INTEGER);
+
+-- name: GetDepartmentEfficiency :many
+WITH ticket_status_start AS (
+    SELECT DISTINCT ON (th.ticket_id)
+        th.ticket_id,
+        th.created_at as status_start_date
+    FROM ticket_history th
+    WHERE th.action = 'status_changed'
+        AND (th.new_value->>'status' = 'open' OR th.new_value->>'status' = 'init')
+    ORDER BY th.ticket_id, th.created_at DESC
+),
+ticket_created AS (
+    SELECT DISTINCT ON (th.ticket_id)
+        th.ticket_id,
+        th.created_at as created_date
+    FROM ticket_history th
+    WHERE th.action = 'created'
+    ORDER BY th.ticket_id, th.created_at ASC
+),
+ticket_closed AS (
+    SELECT DISTINCT ON (th.ticket_id)
+        th.ticket_id,
+        th.created_at as closed_date
+    FROM ticket_history th
+    WHERE th.action = 'status_changed'
+        AND th.new_value->>'status' = 'closed'
+    ORDER BY th.ticket_id, th.created_at DESC
+),
+department_stats AS (
+    SELECT
+        d.id as department_id,
+        d.name as department_name,
+        COUNT(CASE WHEN t.status IN ('open', 'init') THEN 1 END) as in_progress,
+        COUNT(CASE 
+            WHEN t.status IN ('open', 'init') 
+            AND GREATEST(0, EXTRACT(DAY FROM CURRENT_DATE - (COALESCE(tss.status_start_date, tc.created_date, t.created_at)::DATE + INTERVAL '7 days')))::INTEGER > 0
+            THEN 1 
+        END) as overdue,
+        AVG(CASE 
+            WHEN t.status = 'closed' AND tcl.closed_date IS NOT NULL
+            THEN EXTRACT(EPOCH FROM (tcl.closed_date - COALESCE(tc.created_date, t.created_at))) / 86400.0
+        END) as avg_resolution_days
+    FROM departments d
+    LEFT JOIN tickets t ON t.department_id = d.id AND t.is_deleted = false AND t.is_hidden = false
+    LEFT JOIN ticket_status_start tss ON tss.ticket_id = t.id
+    LEFT JOIN ticket_created tc ON tc.ticket_id = t.id
+    LEFT JOIN ticket_closed tcl ON tcl.ticket_id = t.id
+    GROUP BY d.id, d.name
+),
+department_trend AS (
+    SELECT
+        d.id as department_id,
+        COUNT(CASE 
+            WHEN t.status = 'closed' 
+            AND tcl.closed_date >= CURRENT_DATE - INTERVAL '7 days'
+            THEN 1 
+        END) as closed_last_week,
+        COUNT(CASE 
+            WHEN t.status = 'closed' 
+            AND tcl.closed_date >= CURRENT_DATE - INTERVAL '14 days'
+            AND tcl.closed_date < CURRENT_DATE - INTERVAL '7 days'
+            THEN 1 
+        END) as closed_prev_week
+    FROM departments d
+    LEFT JOIN tickets t ON t.department_id = d.id AND t.is_deleted = false AND t.is_hidden = false
+    LEFT JOIN ticket_closed tcl ON tcl.ticket_id = t.id
+    GROUP BY d.id
+)
+SELECT
+    ds.department_id,
+    ds.department_name,
+    ds.in_progress,
+    ds.overdue,
+    COALESCE(ds.avg_resolution_days, 0)::FLOAT as avg_resolution_days,
+    CASE
+        WHEN dt.closed_prev_week = 0 THEN 0
+        ELSE ((dt.closed_last_week::FLOAT - dt.closed_prev_week::FLOAT) / dt.closed_prev_week::FLOAT * 100)
+    END as trend_percent
+FROM department_stats ds
+LEFT JOIN department_trend dt ON dt.department_id = ds.department_id
+ORDER BY ds.department_name;

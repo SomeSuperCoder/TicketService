@@ -37,6 +37,23 @@ type GetOverdueResponse struct {
 	}
 }
 
+type DepartmentEfficiency struct {
+	DepartmentName    string  `json:"department_name"`
+	InProgress        int64   `json:"in_progress"`
+	Overdue           int64   `json:"overdue"`
+	AvgResolutionDays float64 `json:"avg_resolution_days"`
+	TrendPercent      float64 `json:"trend_percent"`
+}
+
+type GetDepartmentEfficiencyResponse struct {
+	Body struct {
+		Departments []DepartmentEfficiency `json:"departments"`
+	}
+}
+
+type GetDepartmentEfficiencyRequest struct {
+}
+
 // ==================== HANDLER METHODS ====================
 
 func (h *MonitoringHandler) GetOverdue(ctx context.Context, req *GetOverdueRequest) (*GetOverdueResponse, error) {
@@ -79,6 +96,21 @@ func (h *MonitoringHandler) GetOverdue(ctx context.Context, req *GetOverdueReque
 	return resp, nil
 }
 
+func (h *MonitoringHandler) GetDepartmentEfficiency(ctx context.Context, req *GetDepartmentEfficiencyRequest) (*GetDepartmentEfficiencyResponse, error) {
+	resp := new(GetDepartmentEfficiencyResponse)
+
+	// Fetch department efficiency data from repository
+	departments, err := h.Repo.GetDepartmentEfficiency(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch department efficiency: %w", err)
+	}
+
+	// Format response
+	resp.Body.Departments = formatDepartmentEfficiency(departments)
+
+	return resp, nil
+}
+
 // ==================== VALIDATION ====================
 
 func validateOverdueParams(req *GetOverdueRequest) error {
@@ -116,6 +148,27 @@ func formatTickets(tickets []repository.GetOverdueTicketsRow) []OverdueTicket {
 			DepartmentID:    ticket.DepartmentID,
 			StatusStartDate: ticket.StatusStartDate.Format("2006-01-02T15:04:05Z07:00"),
 			LostDays:        ticket.LostDays,
+		}
+	}
+	return result
+}
+
+func formatDepartmentEfficiency(departments []repository.GetDepartmentEfficiencyRow) []DepartmentEfficiency {
+	result := make([]DepartmentEfficiency, len(departments))
+	for i, dept := range departments {
+		trendPercent := 0.0
+		if dept.TrendPercent != nil {
+			if val, ok := dept.TrendPercent.(float64); ok {
+				trendPercent = val
+			}
+		}
+
+		result[i] = DepartmentEfficiency{
+			DepartmentName:    dept.DepartmentName,
+			InProgress:        dept.InProgress,
+			Overdue:           dept.Overdue,
+			AvgResolutionDays: dept.AvgResolutionDays,
+			TrendPercent:      trendPercent,
 		}
 	}
 	return result

@@ -202,5 +202,13 @@ func MountRoutes(api huma.API, repo *repository.Queries, pool *pgxpool.Pool, red
 			Description: "Get a list of overdue tickets with lost days metric",
 			Tags:        []string{"Monitoring"},
 		}, monitoringHandler.GetOverdue)
+
+		huma.Register(api, huma.Operation{
+			OperationID: "get-department-efficiency",
+			Method:      http.MethodGet,
+			Path:        "/monitoring/departments",
+			Description: "Get department efficiency metrics including in-progress, overdue, average resolution time, and trend",
+			Tags:        []string{"Monitoring"},
+		}, monitoringHandler.GetDepartmentEfficiency)
 	}
 }
