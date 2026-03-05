@@ -103,7 +103,10 @@ make databases
 # 3. Run migrations and generate code
 make migrate
 
-# 4. Start the API server
+# 4. Load mock data (optional but recommended)
+make mock
+
+# 5. Start the API server
 make serve
 ```
 
@@ -376,6 +379,7 @@ make api-test       # Start in test mode
 make databases      # Start databases
 make databases-down # Stop databases
 make migrate        # Run migrations + generate code
+make mock           # Load mock data for testing
 make postgres       # Connect to PostgreSQL
 make redis          # Connect to Redis
 ```

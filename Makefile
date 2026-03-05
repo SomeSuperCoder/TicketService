@@ -22,6 +22,9 @@ migrate:
 	goose up
 	sqlc generate
 
+mock:
+	psql $(GOOSE_DBSTRING) < tests/mock.sql
+
 recreate:
 	pg_dump $(GOOSE_DBSTRING) --data-only -t reviews -t users -t products -t votes > data.dump
 	goose reset

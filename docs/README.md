@@ -6,6 +6,33 @@ Complete API reference for frontend integration.
 
 **Swagger UI**: http://localhost:8888/api/v1/docs
 
+## Getting Started
+
+```bash
+# Start databases
+make databases
+
+# Run migrations
+make migrate
+
+# Load mock data (recommended for testing)
+make mock
+
+# Start API server
+make serve
+```
+
+The mock data script populates the database with realistic test data including:
+- 5 categories with 14 subcategories
+- 5 departments
+- 8 users (admin, orgs, executors)
+- 23 tickets (closed, open, overdue, init)
+- Multiple comments and history entries
+- Geographic locations for heatmap testing
+- Tags and relationships
+
+All API endpoints will return non-default values with this data loaded.
+
 ## Documentation Files
 
 - [API_REFERENCE.md](API_REFERENCE.md) - Complete API endpoint reference
