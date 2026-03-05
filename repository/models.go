@@ -105,6 +105,91 @@ func (ns NullTicketStatus) Value() (driver.Value, error) {
 	return string(ns.TicketStatus), nil
 }
 
+type UserRole string
+
+const (
+	UserRoleAdmin    UserRole = "admin"
+	UserRoleOrg      UserRole = "org"
+	UserRoleExecutor UserRole = "executor"
+)
+
+func (e *UserRole) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = UserRole(s)
+	case string:
+		*e = UserRole(s)
+	default:
+		return fmt.Errorf("unsupported scan type for UserRole: %T", src)
+	}
+	return nil
+}
+
+type NullUserRole struct {
+	UserRole UserRole `json:"user_role"`
+	Valid    bool     `json:"valid"` // Valid is true if UserRole is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullUserRole) Scan(value interface{}) error {
+	if value == nil {
+		ns.UserRole, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.UserRole.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullUserRole) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.UserRole), nil
+}
+
+type UserStatus string
+
+const (
+	UserStatusActive  UserStatus = "active"
+	UserStatusBlocked UserStatus = "blocked"
+)
+
+func (e *UserStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = UserStatus(s)
+	case string:
+		*e = UserStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for UserStatus: %T", src)
+	}
+	return nil
+}
+
+type NullUserStatus struct {
+	UserStatus UserStatus `json:"user_status"`
+	Valid      bool       `json:"valid"` // Valid is true if UserStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullUserStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.UserStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.UserStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullUserStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.UserStatus), nil
+}
+
 type Category struct {
 	ID   int32  `json:"id"`
 	Name string `json:"name"`
@@ -180,6 +265,19 @@ type TicketHistory struct {
 type TicketTag struct {
 	Ticket uuid.UUID `json:"ticket"`
 	Tag    int32     `json:"tag"`
+}
+
+type User struct {
+	ID           uuid.UUID  `json:"id"`
+	Email        string     `json:"email"`
+	Role         UserRole   `json:"role"`
+	Status       UserStatus `json:"status"`
+	DepartmentID *int32     `json:"department_id"`
+	FirstName    *string    `json:"first_name"`
+	LastName     *string    `json:"last_name"`
+	MiddleName   *string    `json:"middle_name"`
+	CreatedAt    time.Time  `json:"created_at"`
+	UpdatedAt    time.Time  `json:"updated_at"`
 }
 
 type VTicketOverdueStatus struct {

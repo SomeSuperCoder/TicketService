@@ -219,4 +219,40 @@ func MountRoutes(api huma.API, repo *repository.Queries, pool *pgxpool.Pool, red
 			Tags:        []string{"Monitoring"},
 		}, monitoringHandler.GetKPI)
 	}
+
+	// Admin Routes
+	adminUsersHandler := handlers.AdminUsersHandler{Repo: repo, Pool: pool}
+	{
+		huma.Register(api, huma.Operation{
+			OperationID: "list-users",
+			Method:      http.MethodGet,
+			Path:        "/admin/users",
+			Description: "List CRM users with filtering by role, status, and email search",
+			Tags:        []string{"Admin"},
+		}, adminUsersHandler.List)
+
+		huma.Register(api, huma.Operation{
+			OperationID: "create-user",
+			Method:      http.MethodPost,
+			Path:        "/admin/users",
+			Description: "Create a new CRM user (employee or ROI)",
+			Tags:        []string{"Admin"},
+		}, adminUsersHandler.Create)
+
+		huma.Register(api, huma.Operation{
+			OperationID: "update-user",
+			Method:      http.MethodPatch,
+			Path:        "/admin/users/{id}",
+			Description: "Update user permissions or block user",
+			Tags:        []string{"Admin"},
+		}, adminUsersHandler.Update)
+
+		huma.Register(api, huma.Operation{
+			OperationID: "delete-user",
+			Method:      http.MethodDelete,
+			Path:        "/admin/users/{id}",
+			Description: "Delete user and revoke CRM access",
+			Tags:        []string{"Admin"},
+		}, adminUsersHandler.Delete)
+	}
 }
