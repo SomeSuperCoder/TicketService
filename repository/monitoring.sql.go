@@ -13,32 +13,12 @@ import (
 )
 
 const countOverdueTickets = `-- name: CountOverdueTickets :one
-WITH ticket_status_start AS (
-    SELECT DISTINCT ON (th.ticket_id)
-        th.ticket_id,
-        th.created_at as status_start_date
-    FROM ticket_history th
-    WHERE th.action = 'status_changed'
-        AND (th.new_value->>'status' = 'open' OR th.new_value->>'status' = 'init')
-    ORDER BY th.ticket_id, th.created_at DESC
-),
-ticket_created AS (
-    SELECT DISTINCT ON (th.ticket_id)
-        th.ticket_id,
-        th.created_at as created_date
-    FROM ticket_history th
-    WHERE th.action = 'created'
-    ORDER BY th.ticket_id, th.created_at ASC
-)
 SELECT COUNT(*)
 FROM tickets t
-LEFT JOIN ticket_status_start tss ON tss.ticket_id = t.id
-LEFT JOIN ticket_created tc ON tc.ticket_id = t.id
+INNER JOIN v_ticket_overdue_status v ON v.ticket_id = t.id
 WHERE
-    t.is_deleted = false
-    AND t.is_hidden = false
-    AND t.status IN ('open', 'init')
-    AND GREATEST(0, EXTRACT(DAY FROM CURRENT_DATE - (COALESCE(tss.status_start_date, tc.created_date, t.created_at)::DATE + INTERVAL '7 days')))::INTEGER >= $1::INTEGER
+    t.status IN ('open', 'init')
+    AND v.lost_days >= $1::INTEGER
     AND ($2::INTEGER IS NULL OR t.department_id = $2::INTEGER)
 `
 
@@ -55,13 +35,13 @@ func (q *Queries) CountOverdueTickets(ctx context.Context, arg CountOverdueTicke
 }
 
 const getDepartmentEfficiency = `-- name: GetDepartmentEfficiency :many
-WITH ticket_status_start AS (
+WITH ticket_closed AS (
     SELECT DISTINCT ON (th.ticket_id)
         th.ticket_id,
-        th.created_at as status_start_date
+        th.created_at as closed_date
     FROM ticket_history th
     WHERE th.action = 'status_changed'
-        AND (th.new_value->>'status' = 'open' OR th.new_value->>'status' = 'init')
+        AND th.new_value->>'status' = 'closed'
     ORDER BY th.ticket_id, th.created_at DESC
 ),
 ticket_created AS (
@@ -72,32 +52,19 @@ ticket_created AS (
     WHERE th.action = 'created'
     ORDER BY th.ticket_id, th.created_at ASC
 ),
-ticket_closed AS (
-    SELECT DISTINCT ON (th.ticket_id)
-        th.ticket_id,
-        th.created_at as closed_date
-    FROM ticket_history th
-    WHERE th.action = 'status_changed'
-        AND th.new_value->>'status' = 'closed'
-    ORDER BY th.ticket_id, th.created_at DESC
-),
 department_stats AS (
     SELECT
         d.id as department_id,
         d.name as department_name,
         COUNT(CASE WHEN t.status IN ('open', 'init') THEN 1 END) as in_progress,
-        COUNT(CASE 
-            WHEN t.status IN ('open', 'init') 
-            AND GREATEST(0, EXTRACT(DAY FROM CURRENT_DATE - (COALESCE(tss.status_start_date, tc.created_date, t.created_at)::DATE + INTERVAL '7 days')))::INTEGER > 0
-            THEN 1 
-        END) as overdue,
+        COUNT(CASE WHEN v.is_overdue THEN 1 END) as overdue,
         AVG(CASE 
             WHEN t.status = 'closed' AND tcl.closed_date IS NOT NULL
             THEN EXTRACT(EPOCH FROM (tcl.closed_date - COALESCE(tc.created_date, t.created_at))) / 86400.0
         END) as avg_resolution_days
     FROM departments d
     LEFT JOIN tickets t ON t.department_id = d.id AND t.is_deleted = false AND t.is_hidden = false
-    LEFT JOIN ticket_status_start tss ON tss.ticket_id = t.id
+    LEFT JOIN v_ticket_overdue_status v ON v.ticket_id = t.id
     LEFT JOIN ticket_created tc ON tc.ticket_id = t.id
     LEFT JOIN ticket_closed tcl ON tcl.ticket_id = t.id
     GROUP BY d.id, d.name
@@ -174,41 +141,21 @@ func (q *Queries) GetDepartmentEfficiency(ctx context.Context) ([]GetDepartmentE
 
 const getOverdueTickets = `-- name: GetOverdueTickets :many
 
-WITH ticket_status_start AS (
-    SELECT DISTINCT ON (th.ticket_id)
-        th.ticket_id,
-        th.created_at as status_start_date
-    FROM ticket_history th
-    WHERE th.action = 'status_changed'
-        AND (th.new_value->>'status' = 'open' OR th.new_value->>'status' = 'init')
-    ORDER BY th.ticket_id, th.created_at DESC
-),
-ticket_created AS (
-    SELECT DISTINCT ON (th.ticket_id)
-        th.ticket_id,
-        th.created_at as created_date
-    FROM ticket_history th
-    WHERE th.action = 'created'
-    ORDER BY th.ticket_id, th.created_at ASC
-)
 SELECT
     t.id,
     t.description,
     t.status,
     t.subcategory_id,
     t.department_id,
-    COALESCE(tss.status_start_date, tc.created_date, t.created_at) as status_start_date,
-    GREATEST(0, EXTRACT(DAY FROM CURRENT_DATE - (COALESCE(tss.status_start_date, tc.created_date, t.created_at)::DATE + INTERVAL '7 days')))::INTEGER as lost_days
+    v.status_start_date,
+    v.lost_days
 FROM tickets t
-LEFT JOIN ticket_status_start tss ON tss.ticket_id = t.id
-LEFT JOIN ticket_created tc ON tc.ticket_id = t.id
+INNER JOIN v_ticket_overdue_status v ON v.ticket_id = t.id
 WHERE
-    t.is_deleted = false
-    AND t.is_hidden = false
-    AND t.status IN ('open', 'init')
-    AND GREATEST(0, EXTRACT(DAY FROM CURRENT_DATE - (COALESCE(tss.status_start_date, tc.created_date, t.created_at)::DATE + INTERVAL '7 days')))::INTEGER >= $1::INTEGER
+    t.status IN ('open', 'init')
+    AND v.lost_days >= $1::INTEGER
     AND ($2::INTEGER IS NULL OR t.department_id = $2::INTEGER)
-ORDER BY lost_days DESC
+ORDER BY v.lost_days DESC
 LIMIT $3::INTEGER
 `
 

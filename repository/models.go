@@ -181,3 +181,10 @@ type TicketTag struct {
 	Ticket uuid.UUID `json:"ticket"`
 	Tag    int32     `json:"tag"`
 }
+
+type VTicketOverdueStatus struct {
+	TicketID        uuid.UUID `json:"ticket_id"`
+	StatusStartDate time.Time `json:"status_start_date"`
+	LostDays        int32     `json:"lost_days"`
+	IsOverdue       bool      `json:"is_overdue"`
+}
