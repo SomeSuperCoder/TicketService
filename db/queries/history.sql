@@ -52,3 +52,17 @@ WHERE t.is_deleted = false
 ORDER BY h.created_at DESC
 LIMIT sqlc.arg('limit')::INTEGER
 OFFSET sqlc.arg('offset')::INTEGER;
+
+-- name: CreateHistoryEntryWithTime :one
+INSERT INTO ticket_history (
+    ticket_id,
+    action,
+    old_value,
+    new_value,
+    user_name,
+    user_email,
+    description,
+    created_at
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $8
+) RETURNING *;

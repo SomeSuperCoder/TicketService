@@ -65,6 +65,59 @@ func (q *Queries) CreateHistoryEntry(ctx context.Context, arg CreateHistoryEntry
 	return i, err
 }
 
+const createHistoryEntryWithTime = `-- name: CreateHistoryEntryWithTime :one
+INSERT INTO ticket_history (
+    ticket_id,
+    action,
+    old_value,
+    new_value,
+    user_name,
+    user_email,
+    description,
+    created_at
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $8
+) RETURNING id, ticket_id, action, old_value, new_value, user_id, user_name, user_email, description, created_at
+`
+
+type CreateHistoryEntryWithTimeParams struct {
+	TicketID    uuid.UUID     `json:"ticket_id"`
+	Action      HistoryAction `json:"action"`
+	OldValue    []byte        `json:"old_value"`
+	NewValue    []byte        `json:"new_value"`
+	UserName    *string       `json:"user_name"`
+	UserEmail   *string       `json:"user_email"`
+	Description *string       `json:"description"`
+	CreatedAt   time.Time     `json:"created_at"`
+}
+
+func (q *Queries) CreateHistoryEntryWithTime(ctx context.Context, arg CreateHistoryEntryWithTimeParams) (TicketHistory, error) {
+	row := q.db.QueryRow(ctx, createHistoryEntryWithTime,
+		arg.TicketID,
+		arg.Action,
+		arg.OldValue,
+		arg.NewValue,
+		arg.UserName,
+		arg.UserEmail,
+		arg.Description,
+		arg.CreatedAt,
+	)
+	var i TicketHistory
+	err := row.Scan(
+		&i.ID,
+		&i.TicketID,
+		&i.Action,
+		&i.OldValue,
+		&i.NewValue,
+		&i.UserID,
+		&i.UserName,
+		&i.UserEmail,
+		&i.Description,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getRecentHistory = `-- name: GetRecentHistory :many
 SELECT
     h.id,

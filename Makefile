@@ -23,7 +23,7 @@ migrate:
 	sqlc generate
 
 mock:
-	psql $(GOOSE_DBSTRING) < tests/mock.sql
+	go run mock/main.go
 
 recreate:
 	pg_dump $(GOOSE_DBSTRING) --data-only -t reviews -t users -t products -t votes > data.dump

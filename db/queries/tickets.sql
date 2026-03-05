@@ -127,3 +127,9 @@ RETURNING *;
 
 -- name: CountTickets :one
 SELECT COUNT(*) FROM tickets WHERE is_hidden = false AND is_deleted = false;
+
+-- name: UpdateTicketCreatedAt :exec
+UPDATE tickets SET created_at = $2 WHERE id = $1;
+
+-- name: ListAllTickets :many
+SELECT * FROM tickets WHERE is_deleted = false ORDER BY created_at DESC;

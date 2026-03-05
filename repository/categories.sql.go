@@ -9,6 +9,82 @@ import (
 	"context"
 )
 
+const createCategory = `-- name: CreateCategory :one
+INSERT INTO categories (name) VALUES ($1) RETURNING id, name
+`
+
+type CreateCategoryParams struct {
+	Name string `json:"name"`
+}
+
+func (q *Queries) CreateCategory(ctx context.Context, arg CreateCategoryParams) (Category, error) {
+	row := q.db.QueryRow(ctx, createCategory, arg.Name)
+	var i Category
+	err := row.Scan(&i.ID, &i.Name)
+	return i, err
+}
+
+const createDepartment = `-- name: CreateDepartment :one
+INSERT INTO departments (name) VALUES ($1) RETURNING id, name
+`
+
+type CreateDepartmentParams struct {
+	Name string `json:"name"`
+}
+
+func (q *Queries) CreateDepartment(ctx context.Context, arg CreateDepartmentParams) (Department, error) {
+	row := q.db.QueryRow(ctx, createDepartment, arg.Name)
+	var i Department
+	err := row.Scan(&i.ID, &i.Name)
+	return i, err
+}
+
+const createSource = `-- name: CreateSource :one
+INSERT INTO sources (name) VALUES ($1) RETURNING id, name
+`
+
+type CreateSourceParams struct {
+	Name string `json:"name"`
+}
+
+func (q *Queries) CreateSource(ctx context.Context, arg CreateSourceParams) (Source, error) {
+	row := q.db.QueryRow(ctx, createSource, arg.Name)
+	var i Source
+	err := row.Scan(&i.ID, &i.Name)
+	return i, err
+}
+
+const createSubcategory = `-- name: CreateSubcategory :one
+INSERT INTO subcategories (category_id, name) VALUES ($1, $2) RETURNING id, category_id, name
+`
+
+type CreateSubcategoryParams struct {
+	CategoryID int32  `json:"category_id"`
+	Name       string `json:"name"`
+}
+
+func (q *Queries) CreateSubcategory(ctx context.Context, arg CreateSubcategoryParams) (Subcategory, error) {
+	row := q.db.QueryRow(ctx, createSubcategory, arg.CategoryID, arg.Name)
+	var i Subcategory
+	err := row.Scan(&i.ID, &i.CategoryID, &i.Name)
+	return i, err
+}
+
+const createTag = `-- name: CreateTag :one
+INSERT INTO tags (name) VALUES ($1) RETURNING id, name
+`
+
+type CreateTagParams struct {
+	Name string `json:"name"`
+}
+
+func (q *Queries) CreateTag(ctx context.Context, arg CreateTagParams) (Tag, error) {
+	row := q.db.QueryRow(ctx, createTag, arg.Name)
+	var i Tag
+	err := row.Scan(&i.ID, &i.Name)
+	return i, err
+}
+
 const getCategories = `-- name: GetCategories :many
 SELECT id, name FROM categories
 `
@@ -22,6 +98,30 @@ func (q *Queries) GetCategories(ctx context.Context) ([]Category, error) {
 	items := []Category{}
 	for rows.Next() {
 		var i Category
+		if err := rows.Scan(&i.ID, &i.Name); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getDepartments = `-- name: GetDepartments :many
+SELECT id, name FROM departments
+`
+
+func (q *Queries) GetDepartments(ctx context.Context) ([]Department, error) {
+	rows, err := q.db.Query(ctx, getDepartments)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Department{}
+	for rows.Next() {
+		var i Department
 		if err := rows.Scan(&i.ID, &i.Name); err != nil {
 			return nil, err
 		}

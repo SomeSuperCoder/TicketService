@@ -35,30 +35,36 @@ func (q *Queries) CountUsers(ctx context.Context, arg CountUsersParams) (int64, 
 
 const createUser = `-- name: CreateUser :one
 INSERT INTO users (
+    id,
     email,
     role,
+    status,
     department_id,
     first_name,
     last_name,
     middle_name
 ) VALUES (
-    $1, $2, $3, $4, $5, $6
+    $1, $2, $3, $4, $5, $6, $7, $8
 ) RETURNING id, email, role, status, department_id, first_name, last_name, middle_name, created_at, updated_at
 `
 
 type CreateUserParams struct {
-	Email        string   `json:"email"`
-	Role         UserRole `json:"role"`
-	DepartmentID *int32   `json:"department_id"`
-	FirstName    *string  `json:"first_name"`
-	LastName     *string  `json:"last_name"`
-	MiddleName   *string  `json:"middle_name"`
+	ID           uuid.UUID  `json:"id"`
+	Email        string     `json:"email"`
+	Role         UserRole   `json:"role"`
+	Status       UserStatus `json:"status"`
+	DepartmentID *int32     `json:"department_id"`
+	FirstName    *string    `json:"first_name"`
+	LastName     *string    `json:"last_name"`
+	MiddleName   *string    `json:"middle_name"`
 }
 
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
 	row := q.db.QueryRow(ctx, createUser,
+		arg.ID,
 		arg.Email,
 		arg.Role,
+		arg.Status,
 		arg.DepartmentID,
 		arg.FirstName,
 		arg.LastName,

@@ -292,6 +292,40 @@ func (q *Queries) GetTicket(ctx context.Context, arg GetTicketParams) (GetTicket
 	return i, err
 }
 
+const listAllTickets = `-- name: ListAllTickets :many
+SELECT id, status, description, subcategory_id, department_id, embedding, is_hidden, is_deleted, created_at FROM tickets WHERE is_deleted = false ORDER BY created_at DESC
+`
+
+func (q *Queries) ListAllTickets(ctx context.Context) ([]Ticket, error) {
+	rows, err := q.db.Query(ctx, listAllTickets)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Ticket{}
+	for rows.Next() {
+		var i Ticket
+		if err := rows.Scan(
+			&i.ID,
+			&i.Status,
+			&i.Description,
+			&i.SubcategoryID,
+			&i.DepartmentID,
+			&i.Embedding,
+			&i.IsHidden,
+			&i.IsDeleted,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listTickets = `-- name: ListTickets :many
 SELECT
   t.id,
@@ -384,6 +418,20 @@ func (q *Queries) ListTickets(ctx context.Context, arg ListTicketsParams) ([]Lis
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateTicketCreatedAt = `-- name: UpdateTicketCreatedAt :exec
+UPDATE tickets SET created_at = $2 WHERE id = $1
+`
+
+type UpdateTicketCreatedAtParams struct {
+	ID        uuid.UUID `json:"id"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+func (q *Queries) UpdateTicketCreatedAt(ctx context.Context, arg UpdateTicketCreatedAtParams) error {
+	_, err := q.db.Exec(ctx, updateTicketCreatedAt, arg.ID, arg.CreatedAt)
+	return err
 }
 
 const updateTicketSimple = `-- name: UpdateTicketSimple :one

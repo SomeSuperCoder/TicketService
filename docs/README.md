@@ -22,16 +22,35 @@ make mock
 make serve
 ```
 
-The mock data script populates the database with realistic test data including:
-- 5 categories with 14 subcategories
-- 5 departments
-- 8 users (admin, orgs, executors)
-- 23 tickets (closed, open, overdue, init)
-- Multiple comments and history entries
-- Geographic locations for heatmap testing
-- Tags and relationships
+The mock data script (`mock/main.go`) populates the database with realistic, diverse test data including:
 
-All API endpoints will return non-default values with this data loaded.
+**Dictionaries:**
+- 8 categories (ЖКХ, Дороги, Благоустройство, Безопасность, Связь, Здравоохранение, Образование, Экология)
+- 30+ subcategories
+- 8 departments
+- 10 users (admin, orgs, executors with different statuses)
+- 7 tags
+- 6 sources
+
+**Tickets (25 diverse scenarios):**
+- 6 **closed** tickets (resolved, 15-45 days old)
+- 6 **open** tickets (in progress, 1-6 days old)
+- 6 **overdue** tickets (open for 8-20 days, ensuring overdue_count > 0)
+- 5 **init** tickets (new, unassigned, recent)
+
+**Features:**
+- ✅ **Real AI embeddings** - Generated using Ollama (nomic-embed-text-v2-moe model)
+- ✅ **Semantic similarity** - Tickets can be found using natural language search
+- ✅ **Geographic diversity** - Different locations across Cheboksary for heatmap
+- ✅ **Time series data** - Tickets spread across 45 days for dynamics charts
+- ✅ **Rich metadata** - Comments, history, tags, department assignments
+- ✅ **Realistic scenarios** - Heating problems, road damage, stray dogs, internet issues, etc.
+
+All API endpoints will return meaningful, non-default values with this data loaded.
+
+**Requirements:**
+- Ollama running locally: `ollama run nomic-embed-text-v2-moe`
+- If Ollama is not available, fallback embeddings will be used (semantic search won't work as well)
 
 ## Documentation Files
 

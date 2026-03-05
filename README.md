@@ -106,6 +106,9 @@ make migrate
 # 4. Load mock data (optional but recommended)
 make mock
 
+# Note: Requires Ollama running locally with nomic-embed-text-v2-moe model
+# If Ollama is not available, the script will use fallback embeddings
+
 # 5. Start the API server
 make serve
 ```
@@ -379,10 +382,12 @@ make api-test       # Start in test mode
 make databases      # Start databases
 make databases-down # Stop databases
 make migrate        # Run migrations + generate code
-make mock           # Load mock data for testing
+make mock           # Load mock data with real AI embeddings
 make postgres       # Connect to PostgreSQL
 make redis          # Connect to Redis
 ```
+
+**Note**: The `make mock` command generates real AI embeddings using Ollama. Make sure Ollama is running locally with the `nomic-embed-text-v2-moe` model. If not available, fallback embeddings will be used.
 
 ### Adding Features
 
