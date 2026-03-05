@@ -210,5 +210,13 @@ func MountRoutes(api huma.API, repo *repository.Queries, pool *pgxpool.Pool, red
 			Description: "Get department efficiency metrics including in-progress, overdue, average resolution time, and trend",
 			Tags:        []string{"Monitoring"},
 		}, monitoringHandler.GetDepartmentEfficiency)
+
+		huma.Register(api, huma.Operation{
+			OperationID: "get-kpi",
+			Method:      http.MethodGet,
+			Path:        "/monitoring/kpi",
+			Description: "Get key performance indicators: average response time, overdue count, and satisfaction index",
+			Tags:        []string{"Monitoring"},
+		}, monitoringHandler.GetKPI)
 	}
 }

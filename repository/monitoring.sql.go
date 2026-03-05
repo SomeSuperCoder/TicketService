@@ -139,6 +139,92 @@ func (q *Queries) GetDepartmentEfficiency(ctx context.Context) ([]GetDepartmentE
 	return items, nil
 }
 
+const getKPI = `-- name: GetKPI :one
+WITH period_filter AS (
+    SELECT 
+        CASE 
+            WHEN $1::TEXT = 'week' THEN CURRENT_DATE - INTERVAL '7 days'
+            WHEN $1::TEXT = 'month' THEN CURRENT_DATE - INTERVAL '30 days'
+            WHEN $1::TEXT = 'year' THEN CURRENT_DATE - INTERVAL '365 days'
+            ELSE CURRENT_DATE - INTERVAL '30 days'
+        END as start_date
+),
+ticket_created AS (
+    SELECT DISTINCT ON (th.ticket_id)
+        th.ticket_id,
+        th.created_at as created_date
+    FROM ticket_history th
+    WHERE th.action = 'created'
+    ORDER BY th.ticket_id, th.created_at ASC
+),
+first_response AS (
+    SELECT DISTINCT ON (th.ticket_id)
+        th.ticket_id,
+        th.created_at as first_response_date
+    FROM ticket_history th
+    WHERE th.action = 'comment_added'
+    ORDER BY th.ticket_id, th.created_at ASC
+),
+avg_response AS (
+    SELECT 
+        COALESCE(AVG(EXTRACT(EPOCH FROM (fr.first_response_date - tc.created_date)) / 86400.0), 0) as avg_days
+    FROM tickets t
+    INNER JOIN ticket_created tc ON tc.ticket_id = t.id
+    CROSS JOIN period_filter pf
+    INNER JOIN first_response fr ON fr.ticket_id = t.id
+    WHERE 
+        t.is_deleted = false 
+        AND t.is_hidden = false
+        AND tc.created_date >= pf.start_date
+),
+overdue_count AS (
+    SELECT COUNT(*) as total
+    FROM tickets t
+    INNER JOIN v_ticket_overdue_status v ON v.ticket_id = t.id
+    WHERE t.status IN ('open', 'init') AND v.is_overdue = true
+),
+satisfaction_data AS (
+    SELECT 
+        COUNT(CASE WHEN t.status = 'closed' THEN 1 END) as closed_count,
+        COUNT(CASE WHEN t.status IN ('open', 'init') AND v.is_overdue = false THEN 1 END) as on_time_count
+    FROM tickets t
+    INNER JOIN ticket_created tc ON tc.ticket_id = t.id
+    CROSS JOIN period_filter pf
+    LEFT JOIN v_ticket_overdue_status v ON v.ticket_id = t.id
+    WHERE 
+        t.is_deleted = false 
+        AND t.is_hidden = false
+        AND tc.created_date >= pf.start_date
+)
+SELECT
+    ar.avg_days::FLOAT as avg_response_days,
+    oc.total as overdue_count,
+    CASE 
+        WHEN (sd.closed_count + sd.on_time_count) = 0 THEN 0
+        ELSE ((sd.closed_count::FLOAT + sd.on_time_count::FLOAT * 0.5) / (sd.closed_count + sd.on_time_count) * 100)
+    END as satisfaction_index
+FROM avg_response ar
+CROSS JOIN overdue_count oc
+CROSS JOIN satisfaction_data sd
+`
+
+type GetKPIParams struct {
+	Period string `json:"period"`
+}
+
+type GetKPIRow struct {
+	AvgResponseDays   float64     `json:"avg_response_days"`
+	OverdueCount      int64       `json:"overdue_count"`
+	SatisfactionIndex interface{} `json:"satisfaction_index"`
+}
+
+func (q *Queries) GetKPI(ctx context.Context, arg GetKPIParams) (GetKPIRow, error) {
+	row := q.db.QueryRow(ctx, getKPI, arg.Period)
+	var i GetKPIRow
+	err := row.Scan(&i.AvgResponseDays, &i.OverdueCount, &i.SatisfactionIndex)
+	return i, err
+}
+
 const getOverdueTickets = `-- name: GetOverdueTickets :many
 
 SELECT

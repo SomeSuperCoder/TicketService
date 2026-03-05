@@ -54,6 +54,20 @@ type GetDepartmentEfficiencyResponse struct {
 type GetDepartmentEfficiencyRequest struct {
 }
 
+type KPIMetrics struct {
+	AvgResponseDays   float64 `json:"avg_response_days"`
+	OverdueCount      int64   `json:"overdue_count"`
+	SatisfactionIndex float64 `json:"satisfaction_index"`
+}
+
+type GetKPIRequest struct {
+	Period string `query:"period" enum:"week,month,year" default:"month"`
+}
+
+type GetKPIResponse struct {
+	Body KPIMetrics
+}
+
 // ==================== HANDLER METHODS ====================
 
 func (h *MonitoringHandler) GetOverdue(ctx context.Context, req *GetOverdueRequest) (*GetOverdueResponse, error) {
@@ -111,6 +125,39 @@ func (h *MonitoringHandler) GetDepartmentEfficiency(ctx context.Context, req *Ge
 	return resp, nil
 }
 
+func (h *MonitoringHandler) GetKPI(ctx context.Context, req *GetKPIRequest) (*GetKPIResponse, error) {
+	resp := new(GetKPIResponse)
+
+	// Validate period parameter
+	if err := validateKPIPeriod(req); err != nil {
+		return nil, err
+	}
+
+	// Fetch KPI data from repository
+	kpi, err := h.Repo.GetKPI(ctx, repository.GetKPIParams{
+		Period: req.Period,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch KPI metrics: %w", err)
+	}
+
+	// Format response
+	satisfactionIndex := 0.0
+	if kpi.SatisfactionIndex != nil {
+		if val, ok := kpi.SatisfactionIndex.(float64); ok {
+			satisfactionIndex = val
+		}
+	}
+
+	resp.Body = KPIMetrics{
+		AvgResponseDays:   kpi.AvgResponseDays,
+		OverdueCount:      kpi.OverdueCount,
+		SatisfactionIndex: satisfactionIndex,
+	}
+
+	return resp, nil
+}
+
 // ==================== VALIDATION ====================
 
 func validateOverdueParams(req *GetOverdueRequest) error {
@@ -130,6 +177,20 @@ func validateOverdueParams(req *GetOverdueRequest) error {
 	// Validate department_id if provided (0 means not provided)
 	if req.DepartmentID < 0 {
 		return fmt.Errorf("department_id must be a positive integer")
+	}
+
+	return nil
+}
+
+func validateKPIPeriod(req *GetKPIRequest) error {
+	validPeriods := map[string]bool{
+		"week":  true,
+		"month": true,
+		"year":  true,
+	}
+
+	if !validPeriods[req.Period] {
+		return fmt.Errorf("period must be one of: week, month, year")
 	}
 
 	return nil
