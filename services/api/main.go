@@ -191,4 +191,16 @@ func MountRoutes(api huma.API, repo *repository.Queries, pool *pgxpool.Pool, red
 			Tags:        []string{"Heatmap"},
 		}, heatmapHandler.GetStats)
 	}
+
+	// Monitoring Routes
+	monitoringHandler := handlers.MonitoringHandler{Repo: repo}
+	{
+		huma.Register(api, huma.Operation{
+			OperationID: "get-overdue-tickets",
+			Method:      http.MethodGet,
+			Path:        "/monitoring/overdue",
+			Description: "Get a list of overdue tickets with lost days metric",
+			Tags:        []string{"Monitoring"},
+		}, monitoringHandler.GetOverdue)
+	}
 }
